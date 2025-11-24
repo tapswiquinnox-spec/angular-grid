@@ -1,0 +1,14 @@
+{
+  "name": "@ng-data-grid/core",
+  "version": "1.0.0",
+  "description": "Production-ready Angular data grid component library",
+  "main": "./src/public-api.ts",
+  "typings": "./src/public-api.ts",
+  "peerDependencies": {
+    "@angular/common": "^12.0.0",
+    "@angular/core": "^12.0.0",
+    "@angular/forms": "^12.0.0",
+    "rxjs": "^6.6.0"
+  }
+}
+

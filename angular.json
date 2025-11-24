@@ -1,0 +1,152 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "newProjectRoot": "projects",
+  "projects": {
+    "ng-data-grid": {
+      "projectType": "library",
+      "root": "projects/ng-data-grid",
+      "sourceRoot": "projects/ng-data-grid/src",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:ng-packagr",
+          "options": {
+            "project": "projects/ng-data-grid/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/ng-data-grid/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/ng-data-grid/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "tsConfig": "projects/ng-data-grid/tsconfig.spec.json"
+          }
+        }
+      }
+    },
+    "grid-demo": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "css"
+        }
+      },
+      "root": "apps/grid-demo",
+      "sourceRoot": "apps/grid-demo/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:browser",
+          "options": {
+            "outputPath": "dist/grid-demo",
+            "index": "apps/grid-demo/src/index.html",
+            "main": "apps/grid-demo/src/main.ts",
+            "polyfills": "apps/grid-demo/src/polyfills.ts",
+            "tsConfig": "apps/grid-demo/tsconfig.app.json",
+            "assets": [
+              "apps/grid-demo/src/favicon.ico",
+              "apps/grid-demo/src/assets"
+            ],
+            "styles": [
+              "apps/grid-demo/src/styles.css"
+            ],
+            "scripts": [],
+            "allowedCommonJsDependencies": [],
+            "stylePreprocessorOptions": {
+              "includePaths": []
+            },
+            "preserveSymlinks": true
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "600kb",
+                  "maximumError": "1mb"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "20kb",
+                  "maximumError": "25kb"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "buildOptimizer": false,
+              "optimization": false,
+              "vendorChunk": true,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "namedChunks": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular-devkit/build-angular:dev-server",
+          "options": {
+            "browserTarget": "grid-demo:build"
+          },
+          "configurations": {
+            "production": {
+              "browserTarget": "grid-demo:build:production"
+            },
+            "development": {
+              "browserTarget": "grid-demo:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "extract-i18n": {
+          "builder": "@angular-devkit/build-angular:extract-i18n",
+          "options": {
+            "browserTarget": "grid-demo:build"
+          }
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "polyfills": "apps/grid-demo/src/polyfills.ts",
+            "tsConfig": "apps/grid-demo/tsconfig.spec.json",
+            "inlineStyleLanguage": "css",
+            "assets": [
+              "apps/grid-demo/src/favicon.ico",
+              "apps/grid-demo/src/assets"
+            ],
+            "styles": [
+              "apps/grid-demo/src/styles.css"
+            ],
+            "scripts": []
+          }
+        },
+        "e2e": {
+          "builder": "@angular-devkit/build-angular:protractor",
+          "options": {
+            "protractorConfig": "apps/grid-demo/e2e/protractor.conf.js",
+            "devServerTarget": "grid-demo:serve"
+          },
+          "configurations": {
+            "production": {
+              "devServerTarget": "grid-demo:serve:production"
+            }
+          }
+        }
+      }
+    }
+  },
+  "cli": {
+    "analytics": "335ac99a-281e-48d1-8ba9-250d92135cfc"
+  }
+}
+
+

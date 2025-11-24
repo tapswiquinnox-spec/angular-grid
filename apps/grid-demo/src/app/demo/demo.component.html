@@ -1,0 +1,58 @@
+<div class="demo-container">
+  <div class="demo-controls">
+    <h2>Grid Examples</h2>
+    <div class="mode-switcher">
+      <a routerLink="/server" class="server-link">
+        Server-Side Demo (50 rows) →
+      </a>
+    </div>
+  </div>
+  
+  <div class="demo-grid">
+    <lib-data-grid
+      [options]="clientSideOptions"
+      (rowClick)="onRowClick($event)"
+      (cellClick)="onCellClick($event)"
+      (selectionChange)="onSelectionChange($event)"
+      (sortChange)="onSortChange($event)"
+      (filterChange)="onFilterChange($event)"
+      (pageChange)="onPageChange($event)"
+      (editSave)="onEditSave($event)">
+    </lib-data-grid>
+  </div>
+  
+  <div class="demo-info">
+    <h3>Features Demonstrated</h3>
+    <ul>
+      <li>✅ Client-side and server-side data modes</li>
+      <li>✅ Virtual scrolling for 100k+ rows</li>
+      <li>✅ Column sorting, filtering, and resizing</li>
+      <li>✅ Column reordering via drag & drop</li>
+      <li>✅ Pinned/frozen columns</li>
+      <li>✅ Cell editing with inline editing</li>
+      <li>✅ Multiple row selection</li>
+      <li>✅ Pagination with customizable page sizes</li>
+      <li>✅ Export to CSV, Excel, PDF</li>
+      <li>✅ Settings persistence (localStorage)</li>
+      <li>✅ Custom cell templates</li>
+      <li>✅ Keyboard navigation</li>
+      <li>✅ Accessibility (ARIA roles)</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Custom Templates -->
+<ng-template #statusTemplate let-row let-value="value">
+  <span [class]="value ? 'badge badge-success' : 'badge badge-danger'">
+    {{ value ? 'Active' : 'Inactive' }}
+  </span>
+</ng-template>
+
+<ng-template #ratingTemplate let-row let-value="value">
+  <div class="rating-display">
+    <span class="stars">{{ getStars(value) }}</span>
+    <span class="rating-value">({{ value.toFixed(1) }})</span>
+  </div>
+</ng-template>
+
+
