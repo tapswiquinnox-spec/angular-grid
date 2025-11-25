@@ -1,15 +1,25 @@
 <div class="demo-container">
   <div class="demo-controls">
     <h2>Grid Examples</h2>
+    <div class="data-type-switcher">
+      <button 
+        *ngFor="let type of dataTypes" 
+        [class.active]="currentDataType === type.value"
+        (click)="loadDataByType(type.value)"
+        class="data-type-btn">
+        {{ type.label }}
+      </button>
+    </div>
     <div class="mode-switcher">
       <a routerLink="/server" class="server-link">
-        Server-Side Demo (50 rows) →
+        Server-Side Demo →
       </a>
     </div>
   </div>
   
   <div class="demo-grid">
     <lib-data-grid
+      *ngIf="clientSideOptions"
       [options]="clientSideOptions"
       (rowClick)="onRowClick($event)"
       (cellClick)="onCellClick($event)"
@@ -19,6 +29,7 @@
       (pageChange)="onPageChange($event)"
       (editSave)="onEditSave($event)">
     </lib-data-grid>
+    <div *ngIf="!clientSideOptions" class="loading-message">Loading data...</div>
   </div>
   
   <div class="demo-info">

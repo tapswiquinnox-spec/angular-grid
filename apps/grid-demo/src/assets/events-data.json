@@ -1,0 +1,73 @@
+[
+  {
+    "eventId": "EVT-001",
+    "eventName": "Tech Conference 2024",
+    "eventType": "Conference",
+    "location": "San Francisco Convention Center",
+    "startDate": "2024-06-15T09:00:00.000Z",
+    "endDate": "2024-06-17T18:00:00.000Z",
+    "attendees": 500,
+    "capacity": 600,
+    "ticketPrice": 299.99,
+    "organizer": "Tech Events Inc",
+    "status": "Upcoming",
+    "description": "Annual technology conference featuring latest innovations"
+  },
+  {
+    "eventId": "EVT-002",
+    "eventName": "Product Launch Webinar",
+    "eventType": "Webinar",
+    "location": "Online",
+    "startDate": "2024-04-20T14:00:00.000Z",
+    "endDate": "2024-04-20T15:30:00.000Z",
+    "attendees": 1200,
+    "capacity": 2000,
+    "ticketPrice": 0,
+    "organizer": "Marketing Team",
+    "status": "Completed",
+    "description": "Live product demonstration and Q&A session"
+  },
+  {
+    "eventId": "EVT-003",
+    "eventName": "Team Building Workshop",
+    "eventType": "Workshop",
+    "location": "Company Headquarters",
+    "startDate": "2024-05-10T10:00:00.000Z",
+    "endDate": "2024-05-10T16:00:00.000Z",
+    "attendees": 45,
+    "capacity": 50,
+    "ticketPrice": 0,
+    "organizer": "HR Department",
+    "status": "Completed",
+    "description": "Internal team building activities and training"
+  },
+  {
+    "eventId": "EVT-004",
+    "eventName": "Networking Mixer",
+    "eventType": "Networking",
+    "location": "Downtown Restaurant",
+    "startDate": "2024-07-05T18:00:00.000Z",
+    "endDate": "2024-07-05T21:00:00.000Z",
+    "attendees": 80,
+    "capacity": 100,
+    "ticketPrice": 49.99,
+    "organizer": "Business Network Group",
+    "status": "Upcoming",
+    "description": "Evening networking event for professionals"
+  },
+  {
+    "eventId": "EVT-005",
+    "eventName": "Training Session: Angular Advanced",
+    "eventType": "Training",
+    "location": "Online",
+    "startDate": "2024-05-25T13:00:00.000Z",
+    "endDate": "2024-05-25T17:00:00.000Z",
+    "attendees": 35,
+    "capacity": 40,
+    "ticketPrice": 149.99,
+    "organizer": "Tech Training Academy",
+    "status": "Cancelled",
+    "description": "Advanced Angular development techniques and best practices"
+  }
+]
+

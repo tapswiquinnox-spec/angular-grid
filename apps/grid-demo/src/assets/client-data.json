@@ -1,0 +1,278 @@
+[
+  {
+    "id": 1,
+    "name": "Premium Smartphone #1",
+    "category": "Electronics",
+    "price": 299.99,
+    "stock": 1250,
+    "rating": 4.5,
+    "description": "High-quality smartphone from Premium brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-03-15T00:00:00.000Z"
+  },
+  {
+    "id": 2,
+    "name": "Classic Laptop #2",
+    "category": "Electronics",
+    "price": 449.99,
+    "stock": 890,
+    "rating": 4.2,
+    "description": "High-quality laptop from Classic brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-05-20T00:00:00.000Z"
+  },
+  {
+    "id": 3,
+    "name": "Pro Tablet #3",
+    "category": "Electronics",
+    "price": 199.99,
+    "stock": 2100,
+    "rating": 4.8,
+    "description": "High-quality tablet from Pro brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-07-10T00:00:00.000Z"
+  },
+  {
+    "id": 4,
+    "name": "Elite Headphones #4",
+    "category": "Electronics",
+    "price": 149.99,
+    "stock": 1750,
+    "rating": 4.6,
+    "description": "High-quality headphones from Elite brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-09-25T00:00:00.000Z"
+  },
+  {
+    "id": 5,
+    "name": "Standard Smart Watch #5",
+    "category": "Electronics",
+    "price": 179.99,
+    "stock": 980,
+    "rating": 4.3,
+    "description": "High-quality smart watch from Standard brand. Perfect for everyday use.",
+    "active": false,
+    "createdAt": "2021-01-12T00:00:00.000Z"
+  },
+  {
+    "id": 6,
+    "name": "Premium T-Shirt #6",
+    "category": "Clothing",
+    "price": 49.99,
+    "stock": 3200,
+    "rating": 4.4,
+    "description": "High-quality t-shirt from Premium brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-04-08T00:00:00.000Z"
+  },
+  {
+    "id": 7,
+    "name": "Classic Jeans #7",
+    "category": "Clothing",
+    "price": 79.99,
+    "stock": 1850,
+    "rating": 4.1,
+    "description": "High-quality jeans from Classic brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-06-15T00:00:00.000Z"
+  },
+  {
+    "id": 8,
+    "name": "Pro Jacket #8",
+    "category": "Clothing",
+    "price": 129.99,
+    "stock": 1450,
+    "rating": 4.7,
+    "description": "High-quality jacket from Pro brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-08-22T00:00:00.000Z"
+  },
+  {
+    "id": 9,
+    "name": "Elite Shoes #9",
+    "category": "Clothing",
+    "price": 99.99,
+    "stock": 2100,
+    "rating": 4.5,
+    "description": "High-quality shoes from Elite brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-10-30T00:00:00.000Z"
+  },
+  {
+    "id": 10,
+    "name": "Standard Coffee #10",
+    "category": "Food & Beverages",
+    "price": 9.99,
+    "stock": 4500,
+    "rating": 4.2,
+    "description": "High-quality coffee from Standard brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-02-14T00:00:00.000Z"
+  },
+  {
+    "id": 11,
+    "name": "Premium Tea #11",
+    "category": "Food & Beverages",
+    "price": 12.99,
+    "stock": 3800,
+    "rating": 4.6,
+    "description": "High-quality tea from Premium brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-11-05T00:00:00.000Z"
+  },
+  {
+    "id": 12,
+    "name": "Classic Chocolate #12",
+    "category": "Food & Beverages",
+    "price": 7.99,
+    "stock": 5200,
+    "rating": 4.8,
+    "description": "High-quality chocolate from Classic brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2021-03-18T00:00:00.000Z"
+  },
+  {
+    "id": 13,
+    "name": "Pro Novel #13",
+    "category": "Books",
+    "price": 19.99,
+    "stock": 2100,
+    "rating": 4.3,
+    "description": "High-quality novel from Pro brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-05-25T00:00:00.000Z"
+  },
+  {
+    "id": 14,
+    "name": "Elite Textbook #14",
+    "category": "Books",
+    "price": 29.99,
+    "stock": 1500,
+    "rating": 4.0,
+    "description": "High-quality textbook from Elite brand. Perfect for everyday use.",
+    "active": false,
+    "createdAt": "2020-09-12T00:00:00.000Z"
+  },
+  {
+    "id": 15,
+    "name": "Standard Comic #15",
+    "category": "Books",
+    "price": 14.99,
+    "stock": 2800,
+    "rating": 4.7,
+    "description": "High-quality comic from Standard brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2021-01-28T00:00:00.000Z"
+  },
+  {
+    "id": 16,
+    "name": "Premium Action Figure #16",
+    "category": "Toys & Games",
+    "price": 24.99,
+    "stock": 1900,
+    "rating": 4.4,
+    "description": "High-quality action figure from Premium brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-07-03T00:00:00.000Z"
+  },
+  {
+    "id": 17,
+    "name": "Classic Board Game #17",
+    "category": "Toys & Games",
+    "price": 34.99,
+    "stock": 1650,
+    "rating": 4.6,
+    "description": "High-quality board game from Classic brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-12-20T00:00:00.000Z"
+  },
+  {
+    "id": 18,
+    "name": "Pro Plant Pot #18",
+    "category": "Home & Garden",
+    "price": 79.99,
+    "stock": 1200,
+    "rating": 4.2,
+    "description": "High-quality plant pot from Pro brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-04-17T00:00:00.000Z"
+  },
+  {
+    "id": 19,
+    "name": "Elite Basketball #19",
+    "category": "Sports & Outdoors",
+    "price": 89.99,
+    "stock": 2100,
+    "rating": 4.5,
+    "description": "High-quality basketball from Elite brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2020-08-09T00:00:00.000Z"
+  },
+  {
+    "id": 20,
+    "name": "Standard Shampoo #20",
+    "category": "Health & Beauty",
+    "price": 14.99,
+    "stock": 3400,
+    "rating": 4.3,
+    "description": "High-quality shampoo from Standard brand. Perfect for everyday use.",
+    "active": true,
+    "createdAt": "2021-02-14T00:00:00.000Z"
+  },
+  {
+    "id": 21,
+    "name": "Ultra Gaming Console",
+    "category": "Electronics",
+    "price": 499.99,
+    "stock": 650,
+    "rating": 4.9,
+    "description": "Next-generation gaming console with advanced graphics and performance.",
+    "active": true,
+    "createdAt": "2021-06-10T00:00:00.000Z"
+  },
+  {
+    "id": 22,
+    "name": "Deluxe Winter Coat",
+    "category": "Clothing",
+    "price": 199.99,
+    "stock": 850,
+    "rating": 4.6,
+    "description": "Premium winter coat with waterproof material and thermal insulation.",
+    "active": true,
+    "createdAt": "2021-09-22T00:00:00.000Z"
+  },
+  {
+    "id": 23,
+    "name": "Organic Green Tea",
+    "category": "Food & Beverages",
+    "price": 15.99,
+    "stock": 2800,
+    "rating": 4.7,
+    "description": "Certified organic green tea with antioxidant properties.",
+    "active": true,
+    "createdAt": "2021-04-05T00:00:00.000Z"
+  },
+  {
+    "id": 24,
+    "name": "Advanced Fitness Tracker",
+    "category": "Sports & Outdoors",
+    "price": 129.99,
+    "stock": 1450,
+    "rating": 4.4,
+    "description": "Smart fitness tracker with heart rate monitor and GPS tracking.",
+    "active": false,
+    "createdAt": "2021-07-18T00:00:00.000Z"
+  },
+  {
+    "id": 25,
+    "name": "Professional Camera Lens",
+    "category": "Electronics",
+    "price": 899.99,
+    "stock": 120,
+    "rating": 4.8,
+    "description": "High-end professional camera lens with image stabilization.",
+    "active": true,
+    "createdAt": "2021-11-30T00:00:00.000Z"
+  }
+]
+

@@ -53,8 +53,6 @@ import { Component } from '@angular/core';
     }
   `]
 })
-export class AppComponent {
-  title = 'Angular Data Grid Demo';
-}
+export class AppComponent {}
 
 

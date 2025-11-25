@@ -1,10 +1,9 @@
-import { Component, OnInit, TemplateRef, ViewChild } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { Component, OnInit, TemplateRef, ViewChild, ChangeDetectorRef } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { delay, map } from 'rxjs/operators';
 import {
   GridOptions,
-  ColumnDef,
   ColumnType,
   FilterOperator,
   SortDirection,
@@ -26,6 +25,66 @@ interface Product {
   createdAt: Date;
 }
 
+interface Employee {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  department: string;
+  position: string;
+  salary: number;
+  hireDate: Date;
+  isActive: boolean;
+  skills: string[];
+  phoneNumber: string;
+}
+
+interface Order {
+  orderId: string;
+  customerName: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  orderDate: Date;
+  status: string;
+  paymentMethod: string;
+  shippingAddress: string;
+  orderNotes: string;
+}
+
+interface Event {
+  eventId: string;
+  eventName: string;
+  eventType: string;
+  location: string;
+  startDate: Date;
+  endDate: Date;
+  attendees: number;
+  capacity: number;
+  ticketPrice: number;
+  organizer: string;
+  status: string;
+  description: string;
+}
+
+interface Inventory {
+  itemCode: string;
+  itemName: string;
+  category: string;
+  supplier: string;
+  currentStock: number;
+  minStockLevel: number;
+  maxStockLevel: number;
+  unitCost: number;
+  lastRestocked: Date;
+  location: string;
+  isLowStock: boolean;
+  reorderQuantity: number;
+}
+
+type DataType = Product | Employee | Order | Event | Inventory;
+
 @Component({
   selector: 'app-demo',
   templateUrl: './demo.component.html',
@@ -35,237 +94,273 @@ export class DemoComponent implements OnInit {
   @ViewChild('statusTemplate', { static: true }) statusTemplate!: TemplateRef<any>;
   @ViewChild('ratingTemplate', { static: true }) ratingTemplate!: TemplateRef<any>;
   
-  // Generate large dataset for client-side
-  private allData: Product[] = [];
-  // Small dataset for server-side (different data)
-  private serverData: Product[] = [];
+  private allData: DataType[] = [];
+  private serverData: DataType[] = [];
   
-  clientSideOptions!: GridOptions<Product>;
-  serverSideOptions!: GridOptions<Product>;
+  currentDataType: 'products' | 'employees' | 'orders' | 'events' | 'inventory' = 'products';
   
-  currentMode: 'client' | 'server' = 'client';
-  currentOptions!: GridOptions<Product>;
+  dataTypes: Array<{ value: 'products' | 'employees' | 'orders' | 'events' | 'inventory'; label: string }> = [
+    { value: 'products', label: 'Products' },
+    { value: 'employees', label: 'Employees' },
+    { value: 'orders', label: 'Orders' },
+    { value: 'events', label: 'Events' },
+    { value: 'inventory', label: 'Inventory' }
+  ];
   
-  constructor(private http: HttpClient) {
-    this.generateData();
-    this.generateServerData();
-  }
+  clientSideOptions: GridOptions<any> | null = null;
+  serverSideOptions: GridOptions<any> | null = null;
+  
+  constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
   
   ngOnInit(): void {
-    this.setupClientSideGrid();
-    this.setupServerSideGrid();
-    // Set initial options
-    this.currentOptions = this.clientSideOptions;
+    this.loadDataByType('products');
   }
   
-  /**
-   * Generate sample data
-   */
-  private generateData(): void {
-    const categories = ['Electronics', 'Clothing', 'Food & Beverages', 'Books', 'Toys & Games', 'Home & Garden', 'Sports & Outdoors', 'Health & Beauty'];
-    const productNames = {
-      'Electronics': ['Smartphone', 'Laptop', 'Tablet', 'Headphones', 'Smart Watch', 'Camera', 'Speaker', 'Monitor', 'Keyboard', 'Mouse'],
-      'Clothing': ['T-Shirt', 'Jeans', 'Jacket', 'Dress', 'Shoes', 'Hat', 'Socks', 'Sweater', 'Shorts', 'Coat'],
-      'Food & Beverages': ['Coffee', 'Tea', 'Chocolate', 'Chips', 'Cookies', 'Juice', 'Water', 'Snacks', 'Cereal', 'Bread'],
-      'Books': ['Novel', 'Textbook', 'Comic', 'Magazine', 'Dictionary', 'Biography', 'Cookbook', 'Guide', 'Manual', 'Journal'],
-      'Toys & Games': ['Action Figure', 'Board Game', 'Puzzle', 'Doll', 'Car Toy', 'Building Blocks', 'Card Game', 'Video Game', 'Stuffed Animal', 'Robot'],
-      'Home & Garden': ['Plant Pot', 'Garden Tool', 'Furniture', 'Lamp', 'Vase', 'Cushion', 'Curtain', 'Rug', 'Mirror', 'Clock'],
-      'Sports & Outdoors': ['Basketball', 'Football', 'Tennis Racket', 'Yoga Mat', 'Dumbbells', 'Bicycle', 'Camping Tent', 'Hiking Boots', 'Water Bottle', 'Fitness Tracker'],
-      'Health & Beauty': ['Shampoo', 'Soap', 'Lotion', 'Perfume', 'Makeup', 'Toothbrush', 'Vitamins', 'Skincare Set', 'Hairbrush', 'Nail Polish']
+  loadDataByType(type: 'products' | 'employees' | 'orders' | 'events' | 'inventory'): void {
+    this.currentDataType = type;
+    
+    // Reset grid options to null to clear filters and reset grid state
+    this.clientSideOptions = null;
+    this.serverSideOptions = null;
+    this.cdr.detectChanges();
+    
+    const fileMap: Record<string, string> = {
+      products: '/assets/client-data.json',
+      employees: '/assets/employees-data.json',
+      orders: '/assets/orders-data.json',
+      events: '/assets/events-data.json',
+      inventory: '/assets/inventory-data.json'
     };
     
-    const brands = ['Premium', 'Classic', 'Pro', 'Elite', 'Standard', 'Deluxe', 'Basic', 'Advanced', 'Ultra', 'Super'];
+    this.http.get<any[]>(fileMap[type]).subscribe({
+      next: (data) => {
+        this.allData = this.parseDates(data);
+        this.setupClientSideGrid(type);
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error(`Error loading ${type} data:`, error);
+        this.allData = [];
+        this.setupClientSideGrid(type);
+        this.cdr.detectChanges();
+      }
+    });
     
-    // Generate realistic dummy data
-    for (let i = 1; i <= 100000; i++) {
-      const category = categories[i % categories.length];
-      const categoryProducts = productNames[category as keyof typeof productNames] || productNames['Electronics'];
-      const productName = categoryProducts[i % categoryProducts.length];
-      const brand = brands[i % brands.length];
-      const basePrice = this.getBasePrice(category);
-      const price = basePrice * (0.5 + Math.random() * 1.5); // ±50% variation
-      
-      this.allData.push({
-        id: i,
-        name: `${brand} ${productName} ${i <= 1000 ? `#${i}` : ''}`.trim(),
-        category: category,
-        price: Math.round(price * 100) / 100,
-        stock: Math.floor(Math.random() * 5000),
-        rating: Math.round((2 + Math.random() * 3) * 10) / 10, // 2.0 to 5.0
-        description: `High-quality ${productName.toLowerCase()} from ${brand} brand. Perfect for everyday use.`,
-        active: Math.random() > 0.3, // 70% active
-        createdAt: new Date(2020 + Math.floor(Math.random() * 5), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
-      });
-    }
-  }
-  
-  /**
-   * Get base price for category
-   */
-  private getBasePrice(category: string): number {
-    const priceMap: { [key: string]: number } = {
-      'Electronics': 299.99,
-      'Clothing': 49.99,
-      'Food & Beverages': 9.99,
-      'Books': 19.99,
-      'Toys & Games': 24.99,
-      'Home & Garden': 79.99,
-      'Sports & Outdoors': 89.99,
-      'Health & Beauty': 14.99
-    };
-    return priceMap[category] || 29.99;
-  }
-  
-  /**
-   * Generate small server-side dataset (different from client-side)
-   */
-  private generateServerData(): void {
-    // Different categories for server-side
-    const serverCategories = ['Electronics', 'Clothing', 'Books', 'Food & Beverages'];
-    const serverProducts = {
-      'Electronics': ['Smartphone', 'Laptop', 'Tablet', 'Headphones'],
-      'Clothing': ['T-Shirt', 'Jeans', 'Jacket', 'Shoes'],
-      'Books': ['Novel', 'Textbook', 'Comic', 'Magazine'],
-      'Food & Beverages': ['Coffee', 'Tea', 'Chocolate', 'Juice']
+    const serverFileMap: Record<string, string> = {
+      products: '/assets/server-data.json',
+      employees: '/assets/employees-data.json',
+      orders: '/assets/orders-data.json',
+      events: '/assets/events-data.json',
+      inventory: '/assets/inventory-data.json'
     };
     
-    const serverBrands = ['Premium', 'Classic', 'Pro', 'Elite'];
-    
-    // Generate only 50 items for server-side (much less than client-side)
-    for (let i = 1; i <= 50; i++) {
-      const category = serverCategories[i % serverCategories.length];
-      const categoryProducts = serverProducts[category as keyof typeof serverProducts] || serverProducts['Electronics'];
-      const productName = categoryProducts[i % categoryProducts.length];
-      const brand = serverBrands[i % serverBrands.length];
-      const basePrice = this.getBasePrice(category);
-      const price = basePrice * (0.7 + Math.random() * 0.6); // ±30% variation
-      
-      this.serverData.push({
-        id: i,
-        name: `${brand} ${productName} #${i}`,
-        category: category,
-        price: Math.round(price * 100) / 100,
-        stock: Math.floor(Math.random() * 1000) + 100, // 100-1100 stock
-        rating: Math.round((3 + Math.random() * 2) * 10) / 10, // 3.0 to 5.0
-        description: `Server-side ${productName.toLowerCase()} from ${brand} brand.`,
-        active: Math.random() > 0.2, // 80% active
-        createdAt: new Date(2023 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
-      });
-    }
+    this.http.get<any[]>(serverFileMap[type]).subscribe({
+      next: (data) => {
+        this.serverData = this.parseDates(data);
+        this.setupServerSideGrid(type);
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error(`Error loading server ${type} data:`, error);
+        this.serverData = [];
+        this.setupServerSideGrid(type);
+      }
+    });
   }
   
-  /**
-   * Setup client-side grid
-   */
-  private setupClientSideGrid(): void {
-    this.clientSideOptions = {
-      columns: [
-        {
-          field: 'id',
-          title: 'ID',
-          type: ColumnType.Number,
-          width: 80,
-          sortable: true,
-          filterable: true,
-          resizable: true
-        },
-        {
-          field: 'name',
-          title: 'Product Name',
-          type: ColumnType.String,
-          width: 200,
-          sortable: true,
-          filterable: true,
-          editable: true,
-          resizable: true,
-          pinned: 'left'
-        },
-        {
-          field: 'category',
-          title: 'Category',
-          type: ColumnType.String,
-          width: 150,
-          sortable: true,
-          filterable: true,
-          resizable: true
-        },
-        {
-          field: 'price',
-          title: 'Price',
-          type: ColumnType.Number,
-          width: 120,
-          sortable: true,
-          filterable: true,
-          editable: true,
-          resizable: true,
-          align: 'right',
-          valueFormatter: (value: any) => `$${value.toFixed(2)}`,
-          aggregate: 'sum',
-          groupable: true
-        },
-        {
-          field: 'stock',
-          title: 'Stock',
-          type: ColumnType.Number,
-          width: 100,
-          sortable: true,
-          filterable: true,
-          editable: true,
-          resizable: true,
-          align: 'right',
-          aggregate: 'sum',
-          groupable: true
-        },
-        {
-          field: 'rating',
-          title: 'Rating',
-          type: ColumnType.Number,
-          width: 150,
-          sortable: true,
-          filterable: true,
-          resizable: true,
-          cellTemplate: this.ratingTemplate,
-          aggregate: 'avg',
-          groupable: true
-        },
-        {
-          field: 'active',
-          title: 'Status',
-          type: ColumnType.Boolean,
-          width: 100,
-          sortable: true,
-          filterable: true,
-          resizable: true,
-          cellTemplate: this.statusTemplate
-        },
-        {
-          field: 'createdAt',
-          title: 'Created',
-          type: ColumnType.Date,
-          width: 150,
-          sortable: true,
-          filterable: true,
-          resizable: true,
-          valueFormatter: (value: any) => new Date(value).toLocaleDateString()
+  private parseDates(data: any[]): any[] {
+    if (!data || data.length === 0) return data;
+    
+    const firstItem = data[0];
+    const dateFields: string[] = [];
+    
+    Object.keys(firstItem).forEach(field => {
+      const value = firstItem[field];
+      if (this.isDateString(String(value)) || field.toLowerCase().includes('date') || field.toLowerCase().includes('time')) {
+        dateFields.push(field);
+      }
+    });
+    
+    return data.map(item => {
+      const parsed = { ...item };
+      dateFields.forEach(field => {
+        if (parsed[field] && typeof parsed[field] === 'string') {
+          parsed[field] = new Date(parsed[field]);
         }
-      ],
+      });
+      return parsed;
+    });
+  }
+  
+  private detectColumnType(value: any): ColumnType {
+    if (value === null || value === undefined) {
+      return ColumnType.String;
+    }
+    
+    if (typeof value === 'boolean') {
+      return ColumnType.Boolean;
+    }
+    
+    if (typeof value === 'number') {
+      return ColumnType.Number;
+    }
+    
+    if (value instanceof Date) {
+      return ColumnType.Date;
+    }
+    
+    if (typeof value === 'string') {
+      if (this.isDateString(value)) {
+        return ColumnType.Date;
+      }
+      return ColumnType.String;
+    }
+    
+    if (Array.isArray(value)) {
+      return ColumnType.String;
+    }
+    
+    return ColumnType.String;
+  }
+  
+  private isDateString(value: string): boolean {
+    if (!value || typeof value !== 'string') return false;
+    const dateRegex = /^\d{4}-\d{2}-\d{2}/;
+    return dateRegex.test(value) && !isNaN(Date.parse(value));
+  }
+  
+  private formatFieldName(field: string): string {
+    return field
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, str => str.toUpperCase())
+      .trim();
+  }
+  
+  private getColumnsFromData(data: any[]): any[] {
+    if (!data || data.length === 0) {
+      return [];
+    }
+    
+    const firstItem = data[0];
+    const columns: any[] = [];
+    const fieldNames = Object.keys(firstItem);
+    
+    fieldNames.forEach((field, index) => {
+      const sampleValue = firstItem[field];
+      const columnType = this.detectColumnType(sampleValue);
+      
+      const column: any = {
+        field: field,
+        title: this.formatFieldName(field),
+        type: columnType,
+        width: this.calculateColumnWidth(field, columnType, sampleValue),
+        sortable: true,
+        filterable: true,
+        resizable: true,
+        editable: columnType !== ColumnType.Boolean && !field.toLowerCase().includes('id') && !field.toLowerCase().includes('date')
+      };
+      
+      if (columnType === ColumnType.Number) {
+        column.align = 'right';
+        if (this.isCurrencyField(field, sampleValue)) {
+          column.valueFormatter = (value: any) => {
+            if (value === null || value === undefined) return '';
+            return `$${Number(value).toFixed(2)}`;
+          };
+        }
+      }
+      
+      if (columnType === ColumnType.Date) {
+        column.valueFormatter = (value: any) => {
+          if (!value) return '';
+          const date = value instanceof Date ? value : new Date(value);
+          return date.toLocaleDateString();
+        };
+      }
+      
+      if (columnType === ColumnType.Boolean) {
+        if (field.toLowerCase().includes('active') || field.toLowerCase().includes('status') || field.toLowerCase().includes('low')) {
+          column.cellTemplate = this.statusTemplate;
+        }
+      }
+      
+      if (field.toLowerCase().includes('rating') && columnType === ColumnType.Number) {
+        column.cellTemplate = this.ratingTemplate;
+      }
+      
+      if (index === 0 || field.toLowerCase().includes('id') || field.toLowerCase().includes('name') || field.toLowerCase().includes('code')) {
+        column.pinned = 'left';
+      }
+      
+      columns.push(column);
+    });
+    
+    return columns;
+  }
+  
+  private calculateColumnWidth(field: string, type: ColumnType, sampleValue: any): number {
+    const fieldNameLength = field.length;
+    const baseWidth = Math.max(100, fieldNameLength * 10);
+    
+    if (type === ColumnType.Number) {
+      return Math.max(100, baseWidth);
+    }
+    
+    if (type === ColumnType.Boolean) {
+      return 100;
+    }
+    
+    if (type === ColumnType.Date) {
+      return 130;
+    }
+    
+    if (sampleValue && typeof sampleValue === 'string') {
+      return Math.min(300, Math.max(150, sampleValue.length * 8));
+    }
+    
+    return Math.max(120, baseWidth);
+  }
+  
+  private isCurrencyField(field: string, value: any): boolean {
+    const currencyFields = ['price', 'cost', 'amount', 'salary', 'total', 'unitprice', 'ticketprice'];
+    const lowerField = field.toLowerCase();
+    return currencyFields.some(cf => lowerField.includes(cf)) || 
+           (typeof value === 'number' && value > 0 && value < 10000 && value % 0.01 === 0);
+  }
+  
+  private detectRowKey(data: any[]): string | undefined {
+    if (!data || data.length === 0) return undefined;
+    const firstItem = data[0];
+    const keyFields = ['id', 'orderId', 'eventId', 'itemCode'];
+    for (const field of keyFields) {
+      if (firstItem.hasOwnProperty(field)) {
+        return field;
+      }
+    }
+    return Object.keys(firstItem)[0];
+  }
+  
+  private setupClientSideGrid(type: string = 'products'): void {
+    const columns = this.getColumnsFromData(this.allData);
+    const rowKey = this.detectRowKey(this.allData);
+    this.clientSideOptions = {
+      columns: columns,
       dataSource: this.allData,
       pageSizeOptions: [10, 20, 50, 100],
       defaultPageSize: 20,
-      defaultSort: [{ field: 'id', direction: SortDirection.Asc }],
-      defaultGroups: [
-        { field: 'category', direction: SortDirection.Asc }
-      ],
+      defaultSort: columns.length > 0 ? [{ field: columns[0].field, direction: SortDirection.Asc }] : [],
+      defaultFilters: [], // Clear filters when switching data types
+      defaultGroups: undefined,
       editable: true,
       editMode: EditMode.Cell,
       selectionMode: SelectionMode.Multiple,
-      rowKey: 'id',
+      rowKey: rowKey,
       virtualScroll: true,
       virtualScrollBuffer: 5,
       columnReorder: true,
       columnResize: true,
       persistSettings: true,
-      settingsKey: 'client-side-grid',
+      settingsKey: `client-side-grid-${type}`, // Unique key per data type to prevent filter persistence
       showHeader: true,
       showFooter: true,
       showRowNumbers: true,
@@ -277,91 +372,18 @@ export class DemoComponent implements OnInit {
     };
   }
   
-  /**
-   * Setup server-side grid
-   */
-  private setupServerSideGrid(): void {
+  private setupServerSideGrid(type: string = 'products'): void {
+    const columns = this.getColumnsFromData(this.serverData);
+    const rowKey = this.detectRowKey(this.serverData);
     this.serverSideOptions = {
-      columns: [
-        {
-          field: 'id',
-          title: 'ID',
-          type: ColumnType.Number,
-          width: 80,
-          sortable: true,
-          filterable: true,
-          resizable: true
-        },
-        {
-          field: 'name',
-          title: 'Product Name',
-          type: ColumnType.String,
-          width: 200,
-          sortable: true,
-          filterable: true,
-          editable: true,
-          resizable: true
-        },
-        {
-          field: 'category',
-          title: 'Category',
-          type: ColumnType.String,
-          width: 150,
-          sortable: true,
-          filterable: true,
-          resizable: true
-        },
-        {
-          field: 'price',
-          title: 'Price',
-          type: ColumnType.Number,
-          width: 120,
-          sortable: true,
-          filterable: true,
-          editable: true,
-          resizable: true,
-          align: 'right',
-          valueFormatter: (value: any) => `$${value.toFixed(2)}`
-        },
-        {
-          field: 'stock',
-          title: 'Stock',
-          type: ColumnType.Number,
-          width: 100,
-          sortable: true,
-          filterable: true,
-          editable: true,
-          resizable: true,
-          align: 'right'
-        },
-        {
-          field: 'rating',
-          title: 'Rating',
-          type: ColumnType.Number,
-          width: 150,
-          sortable: true,
-          filterable: true,
-          resizable: true,
-          cellTemplate: this.ratingTemplate
-        },
-        {
-          field: 'active',
-          title: 'Status',
-          type: ColumnType.Boolean,
-          width: 100,
-          sortable: true,
-          filterable: true,
-          resizable: true,
-          cellTemplate: this.statusTemplate
-        }
-      ],
+      columns: columns,
       dataSource: (params: DataSourceParams) => this.getServerData(params),
       pageSizeOptions: [10, 20, 50, 100],
       defaultPageSize: 20,
       editable: true,
       editMode: EditMode.Cell,
       selectionMode: SelectionMode.Multiple,
-      rowKey: 'id',
+      rowKey: rowKey,
       virtualScroll: false,
       columnReorder: true,
       columnResize: true,
@@ -378,94 +400,51 @@ export class DemoComponent implements OnInit {
     };
   }
   
-  /**
-   * Get server-side data (simulated) - uses different, smaller dataset
-   * COMMENTED OUT FOR DEBUGGING - Only logger active
-   */
-  private getServerData(params: DataSourceParams): Observable<PageResult<Product>> {
-    // LOGGER: Check if server-side is being called
-    console.log('🔵 [SERVER-SIDE] getServerData CALLED!', {
-      timestamp: new Date().toISOString(),
-      params: {
-        page: params.page,
-        pageSize: params.pageSize,
-        skip: params.skip,
-        take: params.take,
-        sort: params.sort,
-        filters: params.filters,
-        groups: params.groups,
-        infiniteScroll: params.infiniteScroll
-      },
-      serverDataLength: this.serverData.length
-    });
-    
-    // Simulate server delay
+  private getServerData(params: DataSourceParams): Observable<PageResult<any>> {
     return of(null).pipe(
       delay(300),
       map(() => {
-        console.log('🔵 [SERVER-SIDE] Processing server data...');
+        let data = [...this.serverData];
         
-        // COMMENTED OUT: All functionality disabled for debugging
-        // Use serverData instead of allData (different, smaller dataset)
-        // let data = [...this.serverData];
+        if (params.filters && params.filters.length > 0) {
+          data = data.filter(row => {
+            return params.filters!.every((filter: any) => {
+              const value = this.getFieldValue(row, filter.field);
+              switch (filter.operator) {
+                case FilterOperator.Contains:
+                  return String(value).toLowerCase().includes(String(filter.value).toLowerCase());
+                case FilterOperator.GreaterThan:
+                  return Number(value) > Number(filter.value);
+                case FilterOperator.LessThan:
+                  return Number(value) < Number(filter.value);
+                default:
+                  return true;
+              }
+            });
+          });
+        }
         
-        // COMMENTED OUT: Filtering
-        // if (params.filters && params.filters.length > 0) {
-        //   data = data.filter(row => {
-        //     return params.filters!.every((filter: any) => {
-        //       const value = this.getFieldValue(row, filter.field);
-        //       switch (filter.operator) {
-        //         case FilterOperator.Contains:
-        //           return String(value).toLowerCase().includes(String(filter.value).toLowerCase());
-        //         case FilterOperator.GreaterThan:
-        //           return Number(value) > Number(filter.value);
-        //         case FilterOperator.LessThan:
-        //           return Number(value) < Number(filter.value);
-        //         default:
-        //           return true;
-        //       }
-        //     });
-        //   });
-        // }
+        if (params.sort && params.sort.length > 0) {
+          data.sort((a, b) => {
+            for (const sort of params.sort!) {
+              const aVal = this.getFieldValue(a, sort.field);
+              const bVal = this.getFieldValue(b, sort.field);
+              let comparison = 0;
+              
+              if (aVal > bVal) comparison = 1;
+              else if (aVal < bVal) comparison = -1;
+              
+              if (sort.direction === SortDirection.Desc) comparison *= -1;
+              if (comparison !== 0) return comparison;
+            }
+            return 0;
+          });
+        }
         
-        // COMMENTED OUT: Sorting
-        // if (params.sort && params.sort.length > 0) {
-        //   data.sort((a, b) => {
-        //     for (const sort of params.sort!) {
-        //       const aVal = this.getFieldValue(a, sort.field);
-        //       const bVal = this.getFieldValue(b, sort.field);
-        //       let comparison = 0;
-        //       
-        //       if (aVal > bVal) comparison = 1;
-        //       else if (aVal < bVal) comparison = -1;
-        //       
-        //       if (sort.direction === SortDirection.Desc) comparison *= -1;
-        //       if (comparison !== 0) return comparison;
-        //     }
-        //     return 0;
-        //   });
-        // }
-        
-        // COMMENTED OUT: Pagination
-        // const total = data.length;
-        // const skip = params.skip || 0;
-        // const take = params.take || 20;
-        // const pageData = data.slice(skip, skip + take);
-        
-        // Return minimal data for testing
-        const total = this.serverData.length;
+        const total = data.length;
         const skip = params.skip || 0;
         const take = params.take || 20;
-        const pageData = this.serverData.slice(skip, skip + take);
-        
-        console.log('🔵 [SERVER-SIDE] Returning data', {
-          dataCount: pageData.length,
-          total: total,
-          skip: skip,
-          take: take,
-          page: params.page,
-          pageSize: params.pageSize
-        });
+        const pageData = data.slice(skip, skip + take);
         
         return {
           data: pageData,
@@ -477,58 +456,18 @@ export class DemoComponent implements OnInit {
     );
   }
   
-  /**
-   * Get field value
-   */
   private getFieldValue(obj: any, field: string): any {
     return field.split('.').reduce((o, p) => o?.[p], obj);
   }
   
-  /**
-   * Switch between client and server mode
-   */
-  switchMode(mode: 'client' | 'server'): void {
-    if (this.currentMode !== mode) {
-      this.currentMode = mode;
-      // Update options reference only when mode actually changes
-      this.currentOptions = mode === 'client' ? this.clientSideOptions : this.serverSideOptions;
-    }
-  }
+  onRowClick(event: any): void {}
+  onCellClick(event: any): void {}
+  onSelectionChange(event: any): void {}
+  onSortChange(event: any): void {}
+  onFilterChange(event: any): void {}
+  onPageChange(event: any): void {}
+  onEditSave(event: any): void {}
   
-  /**
-   * Event handlers
-   */
-  onRowClick(event: any): void {
-    console.log('Row clicked:', event);
-  }
-  
-  onCellClick(event: any): void {
-    console.log('Cell clicked:', event);
-  }
-  
-  onSelectionChange(event: any): void {
-    console.log('Selection changed:', event);
-  }
-  
-  onSortChange(event: any): void {
-    console.log('Sort changed:', event);
-  }
-  
-  onFilterChange(event: any): void {
-    console.log('Filter changed:', event);
-  }
-  
-  onPageChange(event: any): void {
-    console.log('Page changed:', event);
-  }
-  
-  onEditSave(event: any): void {
-    console.log('Edit saved:', event);
-  }
-  
-  /**
-   * Get stars string for rating
-   */
   getStars(rating: number): string {
     const filled = Math.floor(rating);
     const empty = 5 - filled;

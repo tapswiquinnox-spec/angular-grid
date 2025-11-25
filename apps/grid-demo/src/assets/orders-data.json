@@ -1,0 +1,68 @@
+[
+  {
+    "orderId": "ORD-001",
+    "customerName": "Alice Brown",
+    "productName": "Premium Smartphone",
+    "quantity": 2,
+    "unitPrice": 299.99,
+    "totalAmount": 599.98,
+    "orderDate": "2024-01-15T10:30:00.000Z",
+    "status": "Completed",
+    "paymentMethod": "Credit Card",
+    "shippingAddress": "123 Main St, New York, NY 10001",
+    "orderNotes": "Express shipping requested"
+  },
+  {
+    "orderId": "ORD-002",
+    "customerName": "Bob Martinez",
+    "productName": "Classic Laptop",
+    "quantity": 1,
+    "unitPrice": 449.99,
+    "totalAmount": 449.99,
+    "orderDate": "2024-02-20T14:15:00.000Z",
+    "status": "Processing",
+    "paymentMethod": "PayPal",
+    "shippingAddress": "456 Oak Ave, Los Angeles, CA 90001",
+    "orderNotes": "Gift wrapping included"
+  },
+  {
+    "orderId": "ORD-003",
+    "customerName": "Carol White",
+    "productName": "Pro Tablet",
+    "quantity": 3,
+    "unitPrice": 199.99,
+    "totalAmount": 599.97,
+    "orderDate": "2024-03-10T09:45:00.000Z",
+    "status": "Shipped",
+    "paymentMethod": "Debit Card",
+    "shippingAddress": "789 Pine Rd, Chicago, IL 60601",
+    "orderNotes": "Corporate bulk order"
+  },
+  {
+    "orderId": "ORD-004",
+    "customerName": "Daniel Lee",
+    "productName": "Elite Headphones",
+    "quantity": 1,
+    "unitPrice": 149.99,
+    "totalAmount": 149.99,
+    "orderDate": "2024-04-05T16:20:00.000Z",
+    "status": "Pending",
+    "paymentMethod": "Bank Transfer",
+    "shippingAddress": "321 Elm St, Houston, TX 77001",
+    "orderNotes": "Customer requested delayed shipping"
+  },
+  {
+    "orderId": "ORD-005",
+    "customerName": "Eva Garcia",
+    "productName": "Premium T-Shirt",
+    "quantity": 5,
+    "unitPrice": 49.99,
+    "totalAmount": 249.95,
+    "orderDate": "2024-05-12T11:00:00.000Z",
+    "status": "Completed",
+    "paymentMethod": "Credit Card",
+    "shippingAddress": "654 Maple Dr, Phoenix, AZ 85001",
+    "orderNotes": "Different sizes requested"
+  }
+]
+

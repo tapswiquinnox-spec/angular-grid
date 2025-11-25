@@ -1,6 +1,15 @@
 <div class="demo-container">
   <div class="demo-controls">
     <h2>Server-Side Grid Demo</h2>
+    <div class="data-type-switcher">
+      <button 
+        *ngFor="let type of dataTypes" 
+        [class.active]="currentDataType === type.value"
+        (click)="loadDataByType(type.value)"
+        class="data-type-btn">
+        {{ type.label }}
+      </button>
+    </div>
     <div class="mode-switcher">
       <a routerLink="/" class="back-link">← Back to Client-Side</a>
     </div>
@@ -8,6 +17,7 @@
   
   <div class="demo-grid">
     <lib-data-grid
+      *ngIf="serverSideOptions"
       [options]="serverSideOptions"
       (rowClick)="onRowClick($event)"
       (cellClick)="onCellClick($event)"
@@ -17,6 +27,7 @@
       (pageChange)="onPageChange($event)"
       (editSave)="onEditSave($event)">
     </lib-data-grid>
+    <div *ngIf="!serverSideOptions" class="loading-message">Loading data...</div>
   </div>
   
   <div class="demo-info">
@@ -33,7 +44,6 @@
       <li>✅ Custom cell templates</li>
       <li>✅ Keyboard navigation</li>
     </ul>
-    <p><strong>Note:</strong> Check browser console for server-side logs (🔵 [SERVER-SIDE])</p>
   </div>
 </div>
 

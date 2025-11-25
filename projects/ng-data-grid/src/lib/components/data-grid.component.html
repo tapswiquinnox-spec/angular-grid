@@ -93,17 +93,21 @@
     <div class="header-row" #headerRow>
       <!-- Select All Checkbox -->
       <div class="header-cell header-cell-select" *ngIf="options.selectionMode === 'multiple'">
-        <input 
-          type="checkbox" 
-          [checked]="isAllSelected()"
-          [indeterminate]="isIndeterminate()"
-          (change)="onSelectAll($event)"
-          [attr.aria-label]="'Select all rows'">
+        <div class="header-content">
+          <input 
+            type="checkbox" 
+            [checked]="isAllSelected()"
+            [indeterminate]="isIndeterminate()"
+            (change)="onSelectAll($event)"
+            [attr.aria-label]="'Select all rows'">
+        </div>
       </div>
       
       <!-- Row Number Header -->
       <div class="header-cell header-cell-number" *ngIf="options.showRowNumbers">
-        <span>#</span>
+        <div class="header-content">
+          <span>#</span>
+        </div>
       </div>
       
       <!-- Pinned Left Columns -->
@@ -142,6 +146,8 @@
             [placeholder]="'Filter ' + (column.title || column.field)"
             [value]="columnFilters[column.field] || ''"
             (input)="onColumnFilterChange(column.field, $any($event.target).value)"
+            (keyup)="onColumnFilterChange(column.field, $any($event.target).value)"
+            (paste)="onColumnFilterChange(column.field, $any($event.target).value)"
             (click)="$event.stopPropagation()"
             [attr.aria-label]="'Filter ' + (column.title || column.field)">
         </div>
@@ -188,6 +194,8 @@
             [placeholder]="'Filter ' + (column.title || column.field)"
             [value]="columnFilters[column.field] || ''"
             (input)="onColumnFilterChange(column.field, $any($event.target).value)"
+            (keyup)="onColumnFilterChange(column.field, $any($event.target).value)"
+            (paste)="onColumnFilterChange(column.field, $any($event.target).value)"
             (click)="$event.stopPropagation()"
             [attr.aria-label]="'Filter ' + (column.title || column.field)">
         </div>
@@ -234,6 +242,8 @@
             [placeholder]="'Filter ' + (column.title || column.field)"
             [value]="columnFilters[column.field] || ''"
             (input)="onColumnFilterChange(column.field, $any($event.target).value)"
+            (keyup)="onColumnFilterChange(column.field, $any($event.target).value)"
+            (paste)="onColumnFilterChange(column.field, $any($event.target).value)"
             (click)="$event.stopPropagation()"
             [attr.aria-label]="'Filter ' + (column.title || column.field)">
         </div>
@@ -326,8 +336,7 @@
         <input 
           type="checkbox" 
           [checked]="isRowSelected(row)"
-          (change)="onRowSelect(row, $event)"
-          (click)="$event.stopPropagation()"
+          (click)="onRowSelect(row, $event); $event.stopPropagation()"
           [attr.aria-label]="'Select row ' + (virtualScrollStart + i + 1)">
       </div>
       

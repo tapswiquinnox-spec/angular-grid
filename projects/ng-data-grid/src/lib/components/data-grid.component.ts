@@ -115,7 +115,7 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   virtualScrollStart = 0;
   virtualScrollEnd = 0;
   rowHeight = 40;
-  headerHeight = 40;
+  headerHeight = 60;
   
   // Infinite scroll
   accumulatedData: GridRow<T>[] = [];
@@ -234,8 +234,12 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
     this.pageSize = this.options.defaultPageSize || 20;
     this.rowHeight = this.options.rowHeight || 40;
     // Increase header height if column filters are enabled
-    const baseHeaderHeight = this.options.headerHeight || 40;
-    this.headerHeight = (this.options.enableColumnFilters ? baseHeaderHeight + 40 : baseHeaderHeight);
+    // Header content: 60px min-height + 16px top padding + 8px bottom padding = 84px
+    // Margin between header and filter: 12px
+    // Filter row: 50px min-height + 10px top padding + 10px bottom padding = 70px
+    // Total with filters: ~166px, without filters: ~84px
+    const baseHeaderHeight = this.options.headerHeight || 84;
+    this.headerHeight = (this.options.enableColumnFilters ? baseHeaderHeight + 82 : baseHeaderHeight);
     
     // Set initial page and page size in state service
     this.stateService.setPageSize(this.pageSize);
@@ -904,43 +908,145 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   }
   
   /**
+   * Clear all column filters
+   */
+  clearAllFilters(): void {
+    // Clear all column filter inputs
+    this.columnFilters = {};
+    
+    // Get current filters and remove only column-specific filters (keep global search)
+    const currentFilters = this.stateService.getFilters();
+    const searchableColumns = this.options.searchableColumns 
+      ? this.columns.filter(c => this.options.searchableColumns!.includes(c.field))
+      : this.columns.filter(c => c.filterable !== false);
+    
+    // Keep only global search filters
+    const globalSearchFilters = currentFilters.filter(f => {
+      const isGlobalSearch = searchableColumns.some(col => 
+        col.field === f.field && f.operator === FilterOperator.Contains
+      );
+      return isGlobalSearch;
+    });
+    
+    // Update filters
+    this.stateService.setFilters(globalSearchFilters);
+    
+    // Emit filter change event
+    const filterEvent: FilterChangeEvent = { filters: globalSearchFilters };
+    this.filterChange.emit(filterEvent);
+    
+    if (this.events?.filterChange) {
+      this.events.filterChange(filterEvent);
+    }
+    
+    // Force change detection
+    this.cdr.detectChanges();
+  }
+  
+  /**
    * Handle column filter change
    */
   onColumnFilterChange(field: string, value: string): void {
-    this.columnFilters[field] = value;
+    console.log('[FILTER DEBUG] onColumnFilterChange called:', {
+      field,
+      rawValue: value,
+      valueType: typeof value,
+      valueLength: value?.length,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Handle null, undefined, or empty string - use raw value for display, trim for filtering
+    const rawValue = value ?? '';
+    const trimmedValue = rawValue.trim();
+    // Check if empty: null, undefined, empty string, or only whitespace
+    const isEmpty = !rawValue || trimmedValue.length === 0;
+    
+    console.log('[FILTER DEBUG] Value processing:', {
+      rawValue,
+      trimmedValue,
+      isEmpty,
+      beforeColumnFilters: { ...this.columnFilters }
+    });
+    
+    // Create a new object reference to trigger change detection (OnPush strategy)
+    const updatedFilters = { ...this.columnFilters };
+    
+    // Update the columnFilters object - store raw value for display, but filter will use trimmed
+    if (isEmpty) {
+      console.log('[FILTER DEBUG] Filter is empty - removing filter for field:', field);
+      // Remove the filter entry if empty
+      delete updatedFilters[field];
+    } else {
+      console.log('[FILTER DEBUG] Filter has value - setting filter:', { field, rawValue, trimmedValue });
+      // Store the raw value (not trimmed) so input shows what user typed
+      updatedFilters[field] = rawValue;
+    }
+    
+    // Update the reference to trigger change detection
+    this.columnFilters = updatedFilters;
+    
+    console.log('[FILTER DEBUG] Updated columnFilters:', { ...this.columnFilters });
     
     // Get current filters
     const currentFilters = this.stateService.getFilters();
+    
+    console.log('[FILTER DEBUG] Current filters from state service:', currentFilters);
     
     // Remove existing filter for this column (if any) - but keep global search filters
     const searchableColumns = this.options.searchableColumns 
       ? this.columns.filter(c => this.options.searchableColumns!.includes(c.field))
       : this.columns.filter(c => c.filterable !== false);
     
+    // Check if there's a global search active (searchTerm exists)
+    const hasGlobalSearch = this.searchTerm && this.searchTerm.trim().length > 0;
+    const globalSearchValue = hasGlobalSearch ? this.searchTerm.trim() : null;
+    
     // Remove column-specific filters (but keep global search filters)
     const otherFilters = currentFilters.filter(f => {
-      // Keep filters that are from global search (Contains operator on searchable columns)
-      const isGlobalSearch = searchableColumns.some(col => 
-        col.field === f.field && f.operator === FilterOperator.Contains
-      );
-      // Remove only the filter for this specific column
-      return f.field !== field || isGlobalSearch;
+      // If this filter is for a different field, keep it
+      if (f.field !== field) {
+        return true;
+      }
+      
+      // If this filter matches the global search value, it's a global search filter - keep it
+      if (hasGlobalSearch && globalSearchValue && f.value === globalSearchValue && f.operator === FilterOperator.Contains) {
+        console.log('[FILTER DEBUG] Keeping global search filter:', f);
+        return true;
+      }
+      
+      // Otherwise, this is a column-specific filter for this field - remove it
+      console.log('[FILTER DEBUG] Removing column-specific filter:', f);
+      return false;
     });
     
-    // Add new filter if value exists
+    console.log('[FILTER DEBUG] Filters after removing column-specific:', otherFilters);
+    
+    // Add new filter if value exists and is not empty (use trimmed value for filtering)
     let newFilters = [...otherFilters];
     
-    if (value && value.trim()) {
+    if (!isEmpty && trimmedValue.length > 0) {
       const filter: FilterCondition = {
         field,
         operator: FilterOperator.Contains,
-        value: value.trim()
+        value: trimmedValue
       };
       newFilters.push(filter);
+      console.log('[FILTER DEBUG] Added new filter:', filter);
+    } else {
+      console.log('[FILTER DEBUG] Filter is empty - not adding filter condition');
     }
     
-    // Update filters
+    console.log('[FILTER DEBUG] Final filters array before update:', newFilters);
+    console.log('[FILTER DEBUG] Filter count:', newFilters.length);
+    console.log('[FILTER DEBUG] Will clear filter:', isEmpty);
+    
+    // Update filters - this will trigger data refresh via filters$ observable
     this.stateService.setFilters(newFilters);
+    
+    // Verify filters were set correctly
+    const verifyFilters = this.stateService.getFilters();
+    console.log('[FILTER DEBUG] Filters verified in state service:', verifyFilters);
+    console.log('[FILTER DEBUG] Verified filter count:', verifyFilters.length);
     
     // Emit filter change event
     const filterEvent: FilterChangeEvent = { filters: newFilters };
@@ -950,7 +1056,13 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
       this.events.filterChange(filterEvent);
     }
     
-    this.cdr.markForCheck();
+    console.log('[FILTER DEBUG] Filter change event emitted, filters count:', newFilters.length);
+    
+    // Force change detection to update the UI and input values
+    this.cdr.detectChanges();
+    
+    console.log('[FILTER DEBUG] Change detection triggered');
+    console.log('[FILTER DEBUG] Data should refresh now via filters$ subscription');
   }
 
   /**
@@ -965,6 +1077,17 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
     
     const rowKey = this.getRowKey(row);
     this.stateService.setCurrentRow(row as T);
+    
+    // Handle selection for single select mode
+    if (this.options.selectionMode === SelectionMode.Single) {
+      this.stateService.setSelectedRows([row as T]);
+      this.stateService.setSelectedKeys([rowKey]);
+      this.selectionChange.emit({
+        selectedRows: [row as T],
+        selectedKeys: [rowKey],
+        currentRow: row as T
+      });
+    }
     
     const clickEvent: RowClickEvent<T> = { row: row as T, rowIndex: index, event };
     this.rowClick.emit(clickEvent);
@@ -1044,6 +1167,9 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   onRowSelect(row: GridRow<T>, event: Event): void {
     if (isGroupRow(row) || this.options.selectionMode === SelectionMode.None) return;
     
+    event.preventDefault();
+    event.stopPropagation();
+    
     const rowKey = this.getRowKey(row);
     const selectedRows = [...this.stateService.getSelectedRows()];
     const selectedKeys = [...this.stateService.getSelectedKeys()];
@@ -1052,7 +1178,21 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
     // Get only data rows for selection
     const dataRows = this.data.filter(r => !isGroupRow(r)) as T[];
     
-    if (mouseEvent.shiftKey && this.options.selectionMode === SelectionMode.Range) {
+    if (this.options.selectionMode === SelectionMode.Multiple) {
+      // Multiple selection mode - toggle row selection
+      const index = selectedKeys.indexOf(rowKey);
+      if (index >= 0) {
+        // Row is already selected - remove it
+        selectedRows.splice(index, 1);
+        selectedKeys.splice(index, 1);
+      } else {
+        // Row is not selected - add it
+        selectedRows.push(row as T);
+        selectedKeys.push(rowKey);
+      }
+      this.stateService.setSelectedRows(selectedRows);
+      this.stateService.setSelectedKeys(selectedKeys);
+    } else if (mouseEvent.shiftKey && this.options.selectionMode === SelectionMode.Range) {
       // Range selection
       const currentIndex = dataRows.findIndex(r => this.getRowKey(r) === rowKey);
       const lastSelectedIndex = dataRows.findIndex(r => 
@@ -1068,23 +1208,21 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
         this.stateService.setSelectedRows(rangeRows);
         this.stateService.setSelectedKeys(rangeKeys);
       }
-    } else if (mouseEvent.ctrlKey || mouseEvent.metaKey) {
-      // Multi-select
-      const index = selectedKeys.indexOf(rowKey);
-      if (index >= 0) {
-        selectedRows.splice(index, 1);
-        selectedKeys.splice(index, 1);
-      } else {
-        selectedRows.push(row as T);
-        selectedKeys.push(rowKey);
-      }
-      this.stateService.setSelectedRows(selectedRows);
-      this.stateService.setSelectedKeys(selectedKeys);
-    } else {
+    } else if (this.options.selectionMode === SelectionMode.Single) {
       // Single select
       this.stateService.setSelectedRows([row as T]);
       this.stateService.setSelectedKeys([rowKey]);
     }
+    
+    // Emit selection change event
+    this.selectionChange.emit({
+      selectedRows: this.stateService.getSelectedRows(),
+      selectedKeys: this.stateService.getSelectedKeys(),
+      currentRow: this.stateService.getCurrentRow() || undefined
+    });
+    
+    // Trigger change detection to update checkbox states
+    this.cdr.detectChanges();
   }
 
   /**
@@ -1378,13 +1516,20 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   }
 
   /**
-   * Export data
+   * Export data - exports only selected rows
    */
   exportData(format: 'csv' | 'excel' | 'pdf'): void {
-    // Export only data rows, not group rows
-    const dataRows = this.data.filter(r => !isGroupRow(r)) as T[];
     const columns = this.visibleColumns;
-    const filename = `export.${format === 'excel' ? 'xlsx' : format}`;
+    const selectedRows = this.stateService.getSelectedRows();
+    
+    // Export only selected rows
+    if (selectedRows.length === 0) {
+      console.warn('No rows selected. Please select rows to export.');
+      return;
+    }
+    
+    const dataRows = selectedRows;
+    const filename = `export-selected-${selectedRows.length}-rows.${format === 'excel' ? 'xlsx' : format}`;
     
     switch (format) {
       case 'csv':

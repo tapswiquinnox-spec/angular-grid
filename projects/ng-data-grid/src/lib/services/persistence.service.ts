@@ -65,9 +65,10 @@ export class PersistenceService {
     if (settings.sort) {
       state.setSort(settings.sort);
     }
-    if (settings.filters) {
-      state.setFilters(settings.filters);
-    }
+    // Filters are NOT persisted to localStorage - they should be reset on page load
+    // if (settings.filters) {
+    //   state.setFilters(settings.filters);
+    // }
     if (settings.pageSize) {
       state.setPageSize(settings.pageSize);
     }
@@ -77,12 +78,17 @@ export class PersistenceService {
    * Extract settings from grid state
    */
   extractSettings(state: GridStateService): GridSettings {
+    const currentFilters = state.getFilters();
+    if (currentFilters.length > 0) {
+      console.log('[PERSISTENCE] Filters are NOT persisted to localStorage. Current filters will be excluded:', currentFilters);
+    }
     return {
       columnOrder: state.getColumnOrder(),
       columnWidths: state.getColumnWidths(),
       visibleColumns: Array.from(state.getVisibleColumns()),
       sort: state.getSort(),
-      filters: state.getFilters(),
+      // Filters are NOT persisted to localStorage - they should be reset on page load
+      // filters: state.getFilters(),
       pageSize: state.getPageSize()
     };
   }

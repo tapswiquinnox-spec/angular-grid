@@ -1,0 +1,68 @@
+[
+  {
+    "id": 1,
+    "firstName": "John",
+    "lastName": "Smith",
+    "email": "john.smith@company.com",
+    "department": "Engineering",
+    "position": "Senior Developer",
+    "salary": 95000,
+    "hireDate": "2019-03-15T00:00:00.000Z",
+    "isActive": true,
+    "skills": ["JavaScript", "Angular", "TypeScript"],
+    "phoneNumber": "+1-555-0101"
+  },
+  {
+    "id": 2,
+    "firstName": "Sarah",
+    "lastName": "Johnson",
+    "email": "sarah.johnson@company.com",
+    "department": "Marketing",
+    "position": "Marketing Manager",
+    "salary": 78000,
+    "hireDate": "2020-07-22T00:00:00.000Z",
+    "isActive": true,
+    "skills": ["Digital Marketing", "SEO", "Content Strategy"],
+    "phoneNumber": "+1-555-0102"
+  },
+  {
+    "id": 3,
+    "firstName": "Michael",
+    "lastName": "Chen",
+    "email": "michael.chen@company.com",
+    "department": "Sales",
+    "position": "Sales Representative",
+    "salary": 65000,
+    "hireDate": "2021-01-10T00:00:00.000Z",
+    "isActive": true,
+    "skills": ["CRM", "Negotiation", "Client Relations"],
+    "phoneNumber": "+1-555-0103"
+  },
+  {
+    "id": 4,
+    "firstName": "Emily",
+    "lastName": "Davis",
+    "email": "emily.davis@company.com",
+    "department": "HR",
+    "position": "HR Specialist",
+    "salary": 72000,
+    "hireDate": "2018-11-05T00:00:00.000Z",
+    "isActive": false,
+    "skills": ["Recruitment", "Employee Relations", "Training"],
+    "phoneNumber": "+1-555-0104"
+  },
+  {
+    "id": 5,
+    "firstName": "David",
+    "lastName": "Wilson",
+    "email": "david.wilson@company.com",
+    "department": "Finance",
+    "position": "Financial Analyst",
+    "salary": 85000,
+    "hireDate": "2020-02-18T00:00:00.000Z",
+    "isActive": true,
+    "skills": ["Financial Modeling", "Excel", "Data Analysis"],
+    "phoneNumber": "+1-555-0105"
+  }
+]
+
