@@ -5,6 +5,7 @@
   "scripts": {
     "ng": "ng",
     "start": "cross-env NODE_OPTIONS=--openssl-legacy-provider ng serve grid-demo",
+    "dev": "ng serve grid-demo",
     "build": "cross-env NODE_OPTIONS=--openssl-legacy-provider ng build ng-data-grid",
     "build:demo": "cross-env NODE_OPTIONS=--openssl-legacy-provider ng build grid-demo",
     "test": "ng test ng-data-grid",

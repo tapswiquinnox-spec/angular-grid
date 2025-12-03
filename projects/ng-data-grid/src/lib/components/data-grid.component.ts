@@ -828,6 +828,11 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
     return column.field;
   }
 
+  getColumnFlex(column: ColumnDef<T>): string {
+    const basis = column.width || column.minWidth || 120;
+    return `1 1 ${basis}px`;
+  }
+
   /**
    * Track by function for groups
    */

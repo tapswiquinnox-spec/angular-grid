@@ -2,7 +2,8 @@
   padding: 12px;
   max-width: 100%;
   margin: 0;
-  height: calc(100vh - 140px);
+  min-height: 0;
+  height: calc(100vh - 80px);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -192,4 +193,86 @@
   text-align: center;
   font-size: 18px;
   color: #6b7280;
+}
+
+/* Responsive layout */
+@media (max-width: 1024px) {
+  .demo-container {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .demo-controls {
+    padding: 10px 12px;
+  }
+
+  .demo-controls h2 {
+    font-size: 18px;
+  }
+
+  .back-link {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 768px) {
+  .demo-container {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .demo-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .data-type-switcher {
+    width: 100%;
+  }
+
+  .data-type-btn {
+    flex: 1 1 calc(50% - 8px);
+    text-align: center;
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+
+  .mode-switcher {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .back-link {
+    width: 100%;
+    text-align: center;
+  }
+
+  .demo-grid {
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  }
+}
+
+@media (max-width: 480px) {
+  .demo-container {
+    padding: 6px;
+  }
+
+  .demo-controls {
+    padding: 8px 10px;
+  }
+
+  .demo-controls h2 {
+    font-size: 16px;
+  }
+
+  .data-type-btn {
+    flex: 1 1 100%;
+  }
+
+  .loading-message {
+    padding: 24px;
+    font-size: 16px;
+  }
 }

@@ -260,6 +260,39 @@
   z-index: 100;
 }
 
+/* Responsive behavior */
+@media (max-width: 768px) {
+  .ng-data-grid {
+    font-size: 12px;
+  }
+
+  .grid-search {
+    padding: 8px 10px;
+  }
+
+  .search-container {
+    max-width: 100%;
+  }
+
+  .group-panel {
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ng-data-grid {
+    font-size: 11px;
+  }
+
+  .grid-search {
+    padding: 6px 8px;
+  }
+
+  .group-panel {
+    padding: 6px 8px;
+  }
+}
+
 .header-row {
   display: flex;
   width: 100%;
