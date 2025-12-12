@@ -347,7 +347,7 @@ export class DemoComponent implements OnInit {
       columns: columns,
       dataSource: this.allData,
       pageSizeOptions: [10, 20, 50, 100],
-      defaultPageSize: 20,
+      defaultPageSize: 10,
       defaultSort: columns.length > 0 ? [{ field: columns[0].field, direction: SortDirection.Asc }] : [],
       defaultFilters: [], // Clear filters when switching data types
       defaultGroups: undefined,

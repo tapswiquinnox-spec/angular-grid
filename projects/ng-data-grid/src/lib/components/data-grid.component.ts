@@ -333,12 +333,6 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
     ]).pipe(
       debounceTime(100),
       switchMap(([page, pageSize, sort, filters, groups]) => {
-        // Auto-enable infinite scroll when grouping is enabled
-        if (groups.length > 0 && !this.options.infiniteScroll) {
-          this.options.infiniteScroll = true;
-          this.options.infiniteScrollThreshold = this.options.infiniteScrollThreshold || 0.8;
-        }
-        
         // Reset accumulated data when filters, sort, or groups change (not infinite scroll)
         if (!this.isLoadingMore) {
           this.accumulatedData = [];
@@ -346,9 +340,9 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
           this.hasMoreData = true;
         }
         
-        // Check if infinite scroll is enabled and if we're loading more pages
-        const isInfiniteScroll = (this.options.infiniteScroll || groups.length > 0) && this.isLoadingMore;
-        const currentPage = isInfiniteScroll ? this.currentLoadedPage + 1 : page;
+        // Disable infinite scroll: always use explicit page controls
+        const isInfiniteScroll = false;
+        const currentPage = page;
         const skip = (currentPage - 1) * pageSize;
         
         const params: DataSourceParams = {
@@ -359,7 +353,7 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
           sort: sort.filter(s => s.direction !== SortDirection.None),
           filters,
           groups,
-          infiniteScroll: this.options.infiniteScroll || groups.length > 0
+          infiniteScroll: false
         };
         
         // Only log in development mode (reduced frequency)
@@ -387,22 +381,12 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
       takeUntil(this.destroy$)
     ).subscribe({
       next: ({ result, params, isInfiniteScroll }) => {
-        const hasGroups = params.groups && params.groups.length > 0;
-        const useInfiniteScroll = this.options.infiniteScroll || hasGroups;
-        
-        if (isInfiniteScroll && useInfiniteScroll) {
-          // Accumulate data for infinite scroll
-          this.accumulatedData = [...this.accumulatedData, ...result.data];
-          this.currentLoadedPage = params.page || 1;
-          this.hasMoreData = this.accumulatedData.length < result.total;
-          this.isLoadingMore = false;
-        } else {
-          // Replace data (initial load or non-infinite scroll)
-          this.accumulatedData = result.data;
-          this.currentLoadedPage = params.page || 1;
-          this.hasMoreData = result.data.length < result.total;
-          this.loading = false;
-        }
+        // Always replace data (no infinite scroll)
+        this.accumulatedData = result.data;
+        this.currentLoadedPage = params.page || 1;
+        this.hasMoreData = result.data.length < result.total;
+        this.loading = false;
+        this.isLoadingMore = false;
         
         this.data = this.accumulatedData;
         this.total = result.total;
@@ -477,43 +461,25 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
     
     container.addEventListener('scroll', () => {
       this.updateVirtualScroll();
-      
-      // Check for infinite scroll (enabled explicitly or when grouping is active)
-      const hasGroups = this.getCurrentGroups().length > 0;
-      const useInfiniteScroll = this.options.infiniteScroll || hasGroups;
-      if (useInfiniteScroll && !this.isLoadingMore && this.hasMoreData) {
-        this.checkInfiniteScroll(container);
-      }
     });
     
     this.updateVirtualScroll();
   }
   
   /**
-   * Check if we need to load more data for infinite scroll
+   * (Disabled) Check if we need to load more data for infinite scroll
    */
   private checkInfiniteScroll(container: HTMLElement): void {
-    const scrollTop = container.scrollTop;
-    const scrollHeight = container.scrollHeight;
-    const clientHeight = container.clientHeight;
-    const threshold = this.options.infiniteScrollThreshold || 0.8; // 80% from bottom
-    
-    const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
-    
-    if (scrollPercentage >= threshold) {
-      this.loadMoreData();
-    }
+    // Infinite scroll is disabled; pagination is controlled solely by footer controls.
+    return;
   }
   
   /**
-   * Load more data for infinite scroll
+   * (Disabled) Load more data for infinite scroll
    */
   private loadMoreData(): void {
-    if (this.isLoadingMore || !this.hasMoreData) return;
-    
-    this.isLoadingMore = true;
-    this.stateService.setPage(this.currentLoadedPage + 1);
-    this.cdr.markForCheck();
+    // Infinite scroll is disabled; pagination is controlled solely by footer controls.
+    return;
   }
 
   /**

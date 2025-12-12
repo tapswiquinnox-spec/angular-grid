@@ -326,7 +326,7 @@ export class ServerDemoComponent implements OnInit {
       columns: columns,
       dataSource: (params: DataSourceParams) => this.getServerData(params),
       pageSizeOptions: [10, 20, 50, 100],
-      defaultPageSize: 20,
+      defaultPageSize: 10,
       defaultFilters: [], // Clear filters when switching data types
       editable: true,
       editMode: EditMode.Cell,
