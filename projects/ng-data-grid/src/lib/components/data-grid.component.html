@@ -476,7 +476,7 @@
     <div class="footer-content">
       <div class="footer-info">
         <span *ngIf="getCurrentGroups().length === 0">
-          Showing {{ getVisibleRows().length }} of {{ total }} rows
+          Showing {{ getRangeStart() }}-{{ getRangeEnd() }} of {{ total }} rows
         </span>
         <span *ngIf="getCurrentGroups().length > 0">
           Showing {{ getVisibleDataRowsCount() }} of {{ total }} data rows

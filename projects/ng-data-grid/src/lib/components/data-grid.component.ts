@@ -800,6 +800,21 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   }
 
   /**
+   * Pagination range helpers
+   */
+  getRangeStart(): number {
+    if (this.total === 0) return 0;
+    const start = (this.currentPage - 1) * this.pageSize + 1;
+    return Math.min(start, this.total);
+  }
+
+  getRangeEnd(): number {
+    if (this.total === 0) return 0;
+    const end = (this.currentPage - 1) * this.pageSize + this.getVisibleRows().length;
+    return Math.min(end, this.total);
+  }
+
+  /**
    * Track by function for groups
    */
   trackByGroup = (index: number, group: GroupConfig): string => {
