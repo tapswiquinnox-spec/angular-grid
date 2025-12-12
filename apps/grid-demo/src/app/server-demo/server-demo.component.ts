@@ -1,7 +1,7 @@
 import { Component, OnInit, TemplateRef, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { delay, map } from 'rxjs/operators';
+import { delay, map, tap } from 'rxjs/operators';
 import {
   GridOptions,
   ColumnType,
@@ -94,17 +94,20 @@ export class ServerDemoComponent implements OnInit {
   
   private serverData: any[] = [];
   
-  currentDataType: 'products' | 'employees' | 'orders' | 'events' | 'inventory' = 'products';
+  currentDataType: 'products' | 'employees' | 'orders' | 'events' | 'inventory' | 'mockApi' = 'products';
   
-  dataTypes: Array<{ value: 'products' | 'employees' | 'orders' | 'events' | 'inventory'; label: string }> = [
+  dataTypes: Array<{ value: 'products' | 'employees' | 'orders' | 'events' | 'inventory' | 'mockApi'; label: string }> = [
     { value: 'products', label: 'Products' },
     { value: 'employees', label: 'Employees' },
     { value: 'orders', label: 'Orders' },
     { value: 'events', label: 'Events' },
-    { value: 'inventory', label: 'Inventory' }
+    { value: 'inventory', label: 'Inventory' },
+    { value: 'mockApi', label: 'Mock API (Products)' }
   ];
   
   serverSideOptions: GridOptions<any> | null = null;
+  private mockApiCache = new Map<string, any[]>();
+  private mockApiTotal = 0;
   
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
   
@@ -112,12 +115,16 @@ export class ServerDemoComponent implements OnInit {
     this.loadDataByType('products');
   }
   
-  loadDataByType(type: 'products' | 'employees' | 'orders' | 'events' | 'inventory'): void {
+  loadDataByType(type: 'products' | 'employees' | 'orders' | 'events' | 'inventory' | 'mockApi'): void {
     this.currentDataType = type;
     
     // Reset grid options to null to clear filters and reset grid state
     this.serverSideOptions = null;
     this.cdr.detectChanges();
+    
+    // Clear mock cache when switching types
+    this.mockApiCache.clear();
+    this.mockApiTotal = 0;
     
     const fileMap: Record<string, string> = {
       products: '/assets/server-data.json',
@@ -126,6 +133,32 @@ export class ServerDemoComponent implements OnInit {
       events: '/assets/events-data.json',
       inventory: '/assets/inventory-data.json'
     };
+    
+    if (type === 'mockApi') {
+      const initialPage = 1;
+      const initialPageSize = 10;
+      console.log('[SERVER-SIDE DEBUG] Loading mock API data from https://dummyjson.com/products per page...');
+      this.fetchMockApiPage(initialPage, initialPageSize).subscribe({
+        next: ({ data, total }) => {
+          this.mockApiTotal = total;
+          this.mockApiCache.set(`${initialPage}-${initialPageSize}`, data);
+          this.serverData = this.parseDates(data);
+          console.log('[SERVER-SIDE DEBUG] mockApi first page loaded for columns:', {
+            totalItems: total,
+            sampleItems: this.serverData.slice(0, 3)
+          });
+          this.setupServerSideGrid(type);
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          console.error('[SERVER-SIDE DEBUG] Error loading mockApi data:', error);
+          this.serverData = [];
+          this.setupServerSideGrid(type);
+          this.cdr.detectChanges();
+        }
+      });
+      return;
+    }
     
     console.log(`[SERVER-SIDE DEBUG] Loading ${type} data from JSON file...`);
     this.http.get<any[]>(fileMap[type]).subscribe({
@@ -362,9 +395,42 @@ export class ServerDemoComponent implements OnInit {
       filters: params.filters || [],
       groups: params.groups || [],
       infiniteScroll: params.infiniteScroll || false,
-      totalDataSourceItems: this.serverData.length
+      totalDataSourceItems: this.currentDataType === 'mockApi' ? this.mockApiTotal : this.serverData.length
     });
     
+    // Mock API path: fetch page-wise and cache pages
+    if (this.currentDataType === 'mockApi') {
+      const page = params.page || 1;
+      const pageSize = params.pageSize || 10;
+      const cacheKey = `${page}-${pageSize}`;
+      
+      // Return cached page if available
+      if (this.mockApiCache.has(cacheKey)) {
+        const cached = this.mockApiCache.get(cacheKey) || [];
+        return of({
+          data: cached,
+          total: this.mockApiTotal,
+          page,
+          pageSize
+        });
+      }
+      
+      // Fetch from mock API and cache
+      return this.fetchMockApiPage(page, pageSize).pipe(
+        tap(({ data, total }) => {
+          this.mockApiTotal = total;
+          this.mockApiCache.set(cacheKey, data);
+        }),
+        map(({ data, total }) => ({
+          data,
+          total,
+          page,
+          pageSize
+        }))
+      );
+    }
+    
+    // Local (JSON) path with simulated latency
     return of(null).pipe(
       delay(300),
       map(() => {
@@ -460,6 +526,18 @@ export class ServerDemoComponent implements OnInit {
   
   private getFieldValue(obj: any, field: string): any {
     return field.split('.').reduce((o, p) => o?.[p], obj);
+  }
+
+  private fetchMockApiPage(page: number, pageSize: number): Observable<{ data: any[]; total: number }> {
+    const skip = (page - 1) * pageSize;
+    const url = `https://dummyjson.com/products?limit=${pageSize}&skip=${skip}`;
+    return this.http.get<any>(url).pipe(
+      map(resp => {
+        const data = Array.isArray(resp) ? resp : resp?.products || [];
+        const total = resp?.total ?? data.length;
+        return { data, total };
+      })
+    );
   }
   
   onRowClick(event: any): void {}
