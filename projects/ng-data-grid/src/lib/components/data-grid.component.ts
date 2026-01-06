@@ -142,6 +142,7 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   
   private destroy$ = new Subject<void>();
   private dataParams$ = new Subject<DataSourceParams>();
+  private isObservableDataSource = false;
 
   constructor(
     private dataService: DataService<T>,
@@ -264,6 +265,11 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
         hasDataSource: !!this.options.dataSource
       });
     }
+    // Track if data source is an Observable to prevent infinite loops
+    this.isObservableDataSource = !Array.isArray(this.options.dataSource) && 
+                                   typeof this.options.dataSource !== 'function' && 
+                                   this.options.dataSource && 
+                                   typeof (this.options.dataSource as any).subscribe === 'function';
     this.dataService.setDataSource(this.options.dataSource);
   }
 
@@ -403,7 +409,11 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
           this.updateVirtualScroll();
         }
         
-        this.emitDataStateChange(params);
+        // Don't emit dataStateChange for Observable data sources to prevent infinite loops
+        // The component managing the Observable is already handling state through individual event handlers
+        if (!this.isObservableDataSource) {
+          this.emitDataStateChange(params);
+        }
         this.cdr.markForCheck();
       },
       error: (error) => {
@@ -1587,6 +1597,29 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   }
 
   /**
+   * Emit dataStateChange for Observable data sources when groups change manually
+   */
+  private emitDataStateChangeForGroups(groups: GroupConfig[]): void {
+    const sort = this.stateService.getSort();
+    const filters = this.stateService.getFilters();
+    const page = this.stateService.getPage();
+    const pageSize = this.stateService.getPageSize();
+    const skip = (page - 1) * pageSize;
+    
+    const event: DataStateChangeEvent = {
+      skip,
+      take: pageSize,
+      sort,
+      filters,
+      groups
+    };
+    this.dataStateChange.emit(event);
+    if (this.events?.dataStateChange) {
+      this.events.dataStateChange(event);
+    }
+  }
+
+  /**
    * Load persisted settings
    */
   private loadPersistedSettings(): void {
@@ -1676,6 +1709,10 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
 
     const updatedGroups = [...currentGroups, newGroup];
     this.stateService.setGroups(updatedGroups);
+    // For Observable data sources, emit dataStateChange to notify parent of group change
+    if (this.isObservableDataSource) {
+      this.emitDataStateChangeForGroups(updatedGroups);
+    }
     this.cdr.markForCheck();
   }
 
@@ -1686,6 +1723,10 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
     const currentGroups = this.getCurrentGroups();
     const updatedGroups = currentGroups.filter((_, i) => i !== index);
     this.stateService.setGroups(updatedGroups);
+    // For Observable data sources, emit dataStateChange to notify parent of group change
+    if (this.isObservableDataSource) {
+      this.emitDataStateChangeForGroups(updatedGroups);
+    }
     this.cdr.markForCheck();
   }
 
@@ -1698,6 +1739,10 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
     const [removed] = updatedGroups.splice(fromIndex, 1);
     updatedGroups.splice(toIndex, 0, removed);
     this.stateService.setGroups(updatedGroups);
+    // For Observable data sources, emit dataStateChange to notify parent of group change
+    if (this.isObservableDataSource) {
+      this.emitDataStateChangeForGroups(updatedGroups);
+    }
     this.cdr.markForCheck();
   }
 
@@ -1713,6 +1758,10 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
       direction: group.direction === SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc
     };
     this.stateService.setGroups(updatedGroups);
+    // For Observable data sources, emit dataStateChange to notify parent of group change
+    if (this.isObservableDataSource) {
+      this.emitDataStateChangeForGroups(updatedGroups);
+    }
     this.cdr.markForCheck();
   }
 

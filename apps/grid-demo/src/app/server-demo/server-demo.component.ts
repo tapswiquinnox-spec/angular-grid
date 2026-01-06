@@ -1,15 +1,21 @@
 import { Component, OnInit, TemplateRef, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { delay, map, tap } from 'rxjs/operators';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import {
   GridOptions,
   ColumnType,
   FilterOperator,
+  FilterCondition,
   SortDirection,
+  SortConfig,
+  SortChangeEvent,
+  FilterChangeEvent,
+  DataStateChangeEvent,
+  GroupConfig,
+  PageChangeEvent,
   SelectionMode,
   EditMode,
-  DataSourceParams,
   PageResult
 } from '../../../../../projects/ng-data-grid/src/public-api';
 
@@ -94,28 +100,29 @@ export class ServerDemoComponent implements OnInit {
   
   private serverData: any[] = [];
   
-  currentDataType: 'products' | 'employees' | 'orders' | 'events' | 'inventory' | 'mockApi' = 'products';
+  currentDataType: 'mockApi' = 'mockApi';
   
-  dataTypes: Array<{ value: 'products' | 'employees' | 'orders' | 'events' | 'inventory' | 'mockApi'; label: string }> = [
-    { value: 'products', label: 'Products' },
-    { value: 'employees', label: 'Employees' },
-    { value: 'orders', label: 'Orders' },
-    { value: 'events', label: 'Events' },
-    { value: 'inventory', label: 'Inventory' },
+  dataTypes: Array<{ value: 'mockApi'; label: string }> = [
     { value: 'mockApi', label: 'Mock API (Products)' }
   ];
   
   serverSideOptions: GridOptions<any> | null = null;
+  private dataStream = new BehaviorSubject<PageResult<any>>({ data: [], total: 0, page: 1, pageSize: 10 });
   private mockApiCache = new Map<string, any[]>();
   private mockApiTotal = 0;
+  private currentPage = 1;
+  private pageSize = 10;
+  private currentSort: SortConfig[] = [];
+  private currentFilters: FilterCondition[] = [];
+  private currentGroups: GroupConfig[] = [];
   
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
   
   ngOnInit(): void {
-    this.loadDataByType('products');
+    this.loadDataByType('mockApi');
   }
   
-  loadDataByType(type: 'products' | 'employees' | 'orders' | 'events' | 'inventory' | 'mockApi'): void {
+  loadDataByType(type: 'mockApi' = 'mockApi'): void {
     this.currentDataType = type;
     
     // Reset grid options to null to clear filters and reset grid state
@@ -125,56 +132,33 @@ export class ServerDemoComponent implements OnInit {
     // Clear mock cache when switching types
     this.mockApiCache.clear();
     this.mockApiTotal = 0;
+    this.currentPage = 1;
+    this.pageSize = 10;
+    this.currentSort = [];
+    this.currentFilters = [];
+    this.currentGroups = [];
     
-    const fileMap: Record<string, string> = {
-      products: '/assets/server-data.json',
-      employees: '/assets/employees-data.json',
-      orders: '/assets/orders-data.json',
-      events: '/assets/events-data.json',
-      inventory: '/assets/inventory-data.json'
-    };
-    
-    if (type === 'mockApi') {
-      const initialPage = 1;
-      const initialPageSize = 10;
-      console.log('[SERVER-SIDE DEBUG] Loading mock API data from https://dummyjson.com/products per page...');
-      this.fetchMockApiPage(initialPage, initialPageSize).subscribe({
-        next: ({ data, total }) => {
-          this.mockApiTotal = total;
-          this.mockApiCache.set(`${initialPage}-${initialPageSize}`, data);
-          this.serverData = this.parseDates(data);
-          console.log('[SERVER-SIDE DEBUG] mockApi first page loaded for columns:', {
-            totalItems: total,
-            sampleItems: this.serverData.slice(0, 3)
-          });
-          this.setupServerSideGrid(type);
-          this.cdr.detectChanges();
-        },
-        error: (error) => {
-          console.error('[SERVER-SIDE DEBUG] Error loading mockApi data:', error);
-          this.serverData = [];
-          this.setupServerSideGrid(type);
-          this.cdr.detectChanges();
-        }
-      });
-      return;
-    }
-    
-    console.log(`[SERVER-SIDE DEBUG] Loading ${type} data from JSON file...`);
-    this.http.get<any[]>(fileMap[type]).subscribe({
-      next: (data) => {
-        this.serverData = this.parseDates(data);
-        console.log(`[SERVER-SIDE DEBUG] ${type} data loaded successfully:`, {
-          totalItems: this.serverData.length,
+    const initialPage = this.currentPage;
+    const initialPageSize = this.pageSize;
+    console.log('[SERVER-SIDE DEBUG] Loading mock API data from https://dummyjson.com/products per page...');
+    this.fetchMockApiPage(initialPage, initialPageSize).subscribe({
+      next: ({ data, total }) => {
+        this.mockApiTotal = total;
+        this.mockApiCache.set(`${initialPage}-${initialPageSize}`, data);
+        this.serverData = this.parseDates(data); // use first page to infer columns
+        console.log('[SERVER-SIDE DEBUG] mockApi first page loaded for columns:', {
+          totalItems: total,
           sampleItems: this.serverData.slice(0, 3)
         });
         this.setupServerSideGrid(type);
+        this.emitPageResult(data, total, initialPage, initialPageSize);
         this.cdr.detectChanges();
       },
       error: (error) => {
-        console.error(`[SERVER-SIDE DEBUG] Error loading ${type} data:`, error);
+        console.error('[SERVER-SIDE DEBUG] Error loading mockApi data:', error);
         this.serverData = [];
         this.setupServerSideGrid(type);
+        this.emitPageResult([], 0, initialPage, initialPageSize);
         this.cdr.detectChanges();
       }
     });
@@ -357,7 +341,7 @@ export class ServerDemoComponent implements OnInit {
     const rowKey = this.detectRowKey(this.serverData);
     this.serverSideOptions = {
       columns: columns,
-      dataSource: (params: DataSourceParams) => this.getServerData(params),
+      dataSource: this.dataStream.asObservable(),
       pageSizeOptions: [10, 20, 50, 100],
       defaultPageSize: 10,
       defaultFilters: [], // Clear filters when switching data types
@@ -381,151 +365,88 @@ export class ServerDemoComponent implements OnInit {
     };
   }
   
-  private getServerData(params: DataSourceParams): Observable<PageResult<any>> {
-    // Log input parameters
-    console.log('[SERVER-SIDE DEBUG] INPUT:', {
-      timestamp: new Date().toISOString(),
-      pagination: {
-        page: params.page,
-        pageSize: params.pageSize,
-        skip: params.skip,
-        take: params.take
-      },
-      sorting: params.sort || [],
-      filters: params.filters || [],
-      groups: params.groups || [],
-      infiniteScroll: params.infiniteScroll || false,
-      totalDataSourceItems: this.currentDataType === 'mockApi' ? this.mockApiTotal : this.serverData.length
-    });
-    
-    // Mock API path: fetch page-wise and cache pages
-    if (this.currentDataType === 'mockApi') {
-      const page = params.page || 1;
-      const pageSize = params.pageSize || 10;
-      const cacheKey = `${page}-${pageSize}`;
-      
-      // Return cached page if available
-      if (this.mockApiCache.has(cacheKey)) {
-        const cached = this.mockApiCache.get(cacheKey) || [];
-        return of({
-          data: cached,
-          total: this.mockApiTotal,
-          page,
-          pageSize
-        });
-      }
-      
-      // Fetch from mock API and cache
-      return this.fetchMockApiPage(page, pageSize).pipe(
-        tap(({ data, total }) => {
-          this.mockApiTotal = total;
-          this.mockApiCache.set(cacheKey, data);
-        }),
-        map(({ data, total }) => ({
-          data,
-          total,
-          page,
-          pageSize
-        }))
-      );
-    }
-    
-    // Local (JSON) path with simulated latency
-    return of(null).pipe(
-      delay(300),
-      map(() => {
-        let data = [...this.serverData];
-        const initialCount = data.length;
-        
-        // Apply filtering
-        if (params.filters && params.filters.length > 0) {
-          const beforeFilterCount = data.length;
-          data = data.filter(row => {
-            return params.filters!.every((filter: any) => {
-              const value = this.getFieldValue(row, filter.field);
-              switch (filter.operator) {
-                case FilterOperator.Contains:
-                  return String(value).toLowerCase().includes(String(filter.value).toLowerCase());
-                case FilterOperator.GreaterThan:
-                  return Number(value) > Number(filter.value);
-                case FilterOperator.LessThan:
-                  return Number(value) < Number(filter.value);
-                default:
-                  return true;
-              }
-            });
-          });
-          console.log('[SERVER-SIDE DEBUG] AFTER FILTER:', {
-            beforeCount: beforeFilterCount,
-            afterCount: data.length,
-            filtersApplied: params.filters.length,
-            removedItems: beforeFilterCount - data.length
-          });
-        }
-        
-        // Apply sorting
-        if (params.sort && params.sort.length > 0) {
-          data.sort((a, b) => {
-            for (const sort of params.sort!) {
-              const aVal = this.getFieldValue(a, sort.field);
-              const bVal = this.getFieldValue(b, sort.field);
-              let comparison = 0;
-              
-              if (aVal > bVal) comparison = 1;
-              else if (aVal < bVal) comparison = -1;
-              
-              if (sort.direction === SortDirection.Desc) comparison *= -1;
-              if (comparison !== 0) return comparison;
-            }
-            return 0;
-          });
-          console.log('[SERVER-SIDE DEBUG] AFTER SORT:', {
-            sortFields: params.sort.map(s => `${s.field} (${s.direction})`),
-            sortedCount: data.length
-          });
-        }
-        
-        // Apply pagination
-        const total = data.length;
-        const skip = params.skip || 0;
-        const take = params.take || 20;
-        const pageData = data.slice(skip, skip + take);
-        
-        const result = {
-          data: pageData,
-          total,
-          page: params.page,
-          pageSize: params.pageSize
-        };
-        
-        // Log output result
-        console.log('[SERVER-SIDE DEBUG] OUTPUT:', {
-          timestamp: new Date().toISOString(),
-          pagination: {
-            page: result.page,
-            pageSize: result.pageSize,
-            skip: skip,
-            take: take,
-            totalItems: result.total,
-            returnedItems: result.data.length,
-            hasMorePages: skip + take < total
-          },
-          dataPreview: result.data.slice(0, 3).map(item => ({
-            id: item.id,
-            name: item.name,
-            category: item.category,
-            price: item.price
-          })),
-          processingTime: '~300ms (simulated)'
-        });
-        
-        return result;
-      })
-    );
-  }
-  
   private getFieldValue(obj: any, field: string): any {
     return field.split('.').reduce((o, p) => o?.[p], obj);
+  }
+
+  private emitPageResult(data: any[], total: number, page: number, pageSize: number): void {
+    const parsed = this.parseDates(data);
+    this.dataStream.next({ data: parsed, total, page, pageSize });
+    this.cdr.detectChanges();
+  }
+
+  private emitLocalPage(): void {
+    let data = [...this.serverData];
+    // Filters
+    if (this.currentFilters && this.currentFilters.length > 0) {
+      data = data.filter(row => {
+        return this.currentFilters.every(filter => {
+          const value = this.getFieldValue(row, filter.field);
+          switch (filter.operator) {
+            case FilterOperator.Contains:
+              return String(value).toLowerCase().includes(String(filter.value).toLowerCase());
+            case FilterOperator.GreaterThan:
+              return Number(value) > Number(filter.value);
+            case FilterOperator.LessThan:
+              return Number(value) < Number(filter.value);
+            default:
+              return true;
+          }
+        });
+      });
+    }
+    // Sort
+    if (this.currentSort && this.currentSort.length > 0) {
+      data.sort((a, b) => {
+        for (const sort of this.currentSort) {
+          const aVal = this.getFieldValue(a, sort.field);
+          const bVal = this.getFieldValue(b, sort.field);
+          let cmp = 0;
+          if (aVal > bVal) cmp = 1;
+          else if (aVal < bVal) cmp = -1;
+          if (sort.direction === SortDirection.Desc) cmp *= -1;
+          if (cmp !== 0) return cmp;
+        }
+        return 0;
+      });
+    }
+    const total = data.length;
+    const skip = (this.currentPage - 1) * this.pageSize;
+    const pageData = data.slice(skip, skip + this.pageSize);
+    this.emitPageResult(pageData, total, this.currentPage, this.pageSize);
+  }
+
+  private triggerFetch(): void {
+    if (this.currentDataType === 'mockApi') {
+      const page = this.currentPage;
+      const pageSize = this.pageSize;
+      const needsFullFetch =
+        (this.currentFilters && this.currentFilters.length > 0) ||
+        (this.currentGroups && this.currentGroups.length > 0) ||
+        (this.currentSort && this.currentSort.length > 0);
+      const fetchPage = needsFullFetch ? 1 : page;
+      const fetchSize = needsFullFetch ? 100 : pageSize;
+      const cacheKey = `p${fetchPage}-s${fetchSize}-sort${JSON.stringify(this.currentSort)}-f${JSON.stringify(this.currentFilters)}-g${JSON.stringify(this.currentGroups)}`;
+      
+      if (this.mockApiCache.has(cacheKey)) {
+        const cached = this.mockApiCache.get(cacheKey) || [];
+        this.processAndEmit(cached, this.mockApiTotal, page, pageSize, needsFullFetch);
+        return;
+      }
+      
+      this.fetchMockApiPage(fetchPage, fetchSize).subscribe({
+        next: ({ data, total }) => {
+          this.mockApiTotal = total;
+          this.mockApiCache.set(cacheKey, data);
+          this.processAndEmit(data, total, page, pageSize, needsFullFetch);
+        },
+        error: (error) => {
+          console.error('[SERVER-SIDE DEBUG] Error loading mockApi page:', error);
+          this.emitPageResult([], 0, page, pageSize);
+        }
+      });
+      return;
+    }
   }
 
   private fetchMockApiPage(page: number, pageSize: number): Observable<{ data: any[]; total: number }> {
@@ -540,12 +461,85 @@ export class ServerDemoComponent implements OnInit {
     );
   }
   
+  private processAndEmit(rawData: any[], total: number, page: number, pageSize: number, needsFullFetch: boolean): void {
+    let data = this.parseDates(rawData);
+    
+    // Apply filters/sort client-side when server API cannot
+    if (needsFullFetch) {
+      if (this.currentFilters && this.currentFilters.length > 0) {
+        data = data.filter(row => {
+          return this.currentFilters.every(filter => {
+            const value = this.getFieldValue(row, filter.field);
+            switch (filter.operator) {
+              case FilterOperator.Contains:
+                return String(value).toLowerCase().includes(String(filter.value).toLowerCase());
+              case FilterOperator.GreaterThan:
+                return Number(value) > Number(filter.value);
+              case FilterOperator.LessThan:
+                return Number(value) < Number(filter.value);
+              default:
+                return true;
+            }
+          });
+        });
+      }
+      
+      if (this.currentSort && this.currentSort.length > 0) {
+        data.sort((a, b) => {
+          for (const sort of this.currentSort) {
+            const aVal = this.getFieldValue(a, sort.field);
+            const bVal = this.getFieldValue(b, sort.field);
+            let cmp = 0;
+            if (aVal > bVal) cmp = 1;
+            else if (aVal < bVal) cmp = -1;
+            if (sort.direction === SortDirection.Desc) cmp *= -1;
+            if (cmp !== 0) return cmp;
+          }
+          return 0;
+        });
+      }
+      
+      // Grouping note: mock API does not support grouping; data is left flat.
+      const filteredTotal = data.length;
+      const skip = (page - 1) * pageSize;
+      const pageData = data.slice(skip, skip + pageSize);
+      this.emitPageResult(pageData, filteredTotal, page, pageSize);
+      return;
+    }
+    
+    this.emitPageResult(data, total, page, pageSize);
+  }
+  
   onRowClick(event: any): void {}
   onCellClick(event: any): void {}
   onSelectionChange(event: any): void {}
-  onSortChange(event: any): void {}
-  onFilterChange(event: any): void {}
-  onPageChange(event: any): void {}
+  onSortChange(event: SortChangeEvent): void {
+    this.currentSort = event?.sort || [];
+    this.currentPage = 1;
+    this.triggerFetch();
+  }
+  onFilterChange(event: FilterChangeEvent): void {
+    this.currentFilters = event?.filters || [];
+    this.currentPage = 1;
+    this.triggerFetch();
+  }
+  onPageChange(event: PageChangeEvent): void {
+    this.currentPage = event?.page || 1;
+    this.pageSize = event?.pageSize || this.pageSize;
+    this.triggerFetch();
+  }
+  onDataStateChange(event: DataStateChangeEvent): void {
+    this.currentSort = event?.sort || [];
+    this.currentFilters = event?.filters || [];
+    this.currentGroups = event?.groups || [];
+    if (event?.take) {
+      this.pageSize = event.take;
+    }
+    if (event?.skip !== undefined && event.take) {
+      this.currentPage = Math.floor(event.skip / event.take) + 1;
+    }
+    this.triggerFetch();
+  }
   onEditSave(event: any): void {}
   
   getStars(rating: number): string {
