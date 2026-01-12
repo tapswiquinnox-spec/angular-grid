@@ -1,5 +1,6 @@
 import { Observable } from 'rxjs';
 import { ColumnDef, SortConfig, FilterCondition, GroupConfig, SelectionMode, EditMode } from './column.types';
+import { GroupRow } from './group.types';
 
 /**
  * Page result for server-side data
@@ -142,6 +143,7 @@ export interface GridEvents<T = any> {
   columnResize?: (event: ColumnResizeEvent) => void;
   rowDragStart?: (event: RowDragEvent<T>) => void;
   rowDragEnd?: (event: RowDragEvent<T>) => void;
+  groupToggle?: (event: GroupToggleEvent<T>) => void;
 }
 
 /**
@@ -246,6 +248,14 @@ export interface RowDragEvent<T> {
   row: T;
   rowIndex: number;
   event: DragEvent;
+}
+
+/**
+ * Group toggle event
+ */
+export interface GroupToggleEvent<T> {
+  groupRow: GroupRow<T>;
+  expanded: boolean;
 }
 
 

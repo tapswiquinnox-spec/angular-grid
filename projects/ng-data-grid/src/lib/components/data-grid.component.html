@@ -478,16 +478,22 @@
         <span *ngIf="getCurrentGroups().length === 0">
           Showing {{ getRangeStart() }}-{{ getRangeEnd() }} of {{ total }} rows
         </span>
-        <span *ngIf="getCurrentGroups().length > 0">
+        <span *ngIf="getCurrentGroups().length > 0 && !isObservableDataSource">
           Showing {{ getVisibleDataRowsCount() }} of {{ total }} data rows
           <span *ngIf="getVisibleGroupRowsCount() > 0">
             ({{ getVisibleGroupRowsCount() }} group rows)
           </span>
         </span>
+        <span *ngIf="getCurrentGroups().length > 0 && isObservableDataSource">
+          Showing {{ getRangeStart() }}-{{ getRangeEnd() }} of {{ total }} groups
+          <span *ngIf="getVisibleDataRowsCount() > 0">
+            ({{ getVisibleDataRowsCount() }} data rows in expanded groups)
+          </span>
+        </span>
       </div>
       
-      <!-- Pagination controls - hidden when grouping is enabled (uses infinite scroll instead) -->
-      <div class="footer-pagination" *ngIf="options.pageSizeOptions && options.pageSizeOptions.length > 0 && !options.infiniteScroll && getCurrentGroups().length === 0">
+      <!-- Pagination controls - show when not using infinite scroll, or when using server-side data source (Observable) with grouping -->
+      <div class="footer-pagination" *ngIf="options.pageSizeOptions && options.pageSizeOptions.length > 0 && !options.infiniteScroll && (getCurrentGroups().length === 0 || isObservableDataSource)">
         <select 
           [value]="pageSize" 
           (change)="onPageSizeChange(+$any($event.target).value)"

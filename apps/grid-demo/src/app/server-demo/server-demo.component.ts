@@ -13,10 +13,13 @@ import {
   FilterChangeEvent,
   DataStateChangeEvent,
   GroupConfig,
+  GroupToggleEvent,
   PageChangeEvent,
   SelectionMode,
   EditMode,
-  PageResult
+  PageResult,
+  GroupRow,
+  GROUP_ROW_TYPE
 } from '../../../../../projects/ng-data-grid/src/public-api';
 
 interface Product {
@@ -115,6 +118,10 @@ export class ServerDemoComponent implements OnInit {
   private currentSort: SortConfig[] = [];
   private currentFilters: FilterCondition[] = [];
   private currentGroups: GroupConfig[] = [];
+  private currentSearch: string = ''; // Global search term
+  private expandedGroups = new Set<string>();
+  private groupChildrenCache = new Map<string, any[]>(); // Cache children for each group
+  private groupMetadataCache = new Map<string, { metadata: Array<{ value: any; key: string; count: number }>; total: number }>(); // Cache group metadata with total count
   
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
   
@@ -140,11 +147,11 @@ export class ServerDemoComponent implements OnInit {
     
     const initialPage = this.currentPage;
     const initialPageSize = this.pageSize;
-    console.log('[SERVER-SIDE DEBUG] Loading mock API data from https://dummyjson.com/products per page...');
-    this.fetchMockApiPage(initialPage, initialPageSize).subscribe({
+    console.log('[SERVER-SIDE DEBUG] Loading mock API data from local server /api/products...');
+    this.fetchMockApiPage(initialPage, initialPageSize, [], [], [], '').subscribe({
       next: ({ data, total }) => {
         this.mockApiTotal = total;
-        this.mockApiCache.set(`${initialPage}-${initialPageSize}`, data);
+        this.mockApiCache.set(`p${initialPage}-s${initialPageSize}-sort[]-f[]-g[]`, data);
         this.serverData = this.parseDates(data); // use first page to infer columns
         console.log('[SERVER-SIDE DEBUG] mockApi first page loaded for columns:', {
           totalItems: total,
@@ -250,9 +257,9 @@ export class ServerDemoComponent implements OnInit {
         title: this.formatFieldName(field),
         type: columnType,
         width: this.calculateColumnWidth(field, columnType, sampleValue),
-        sortable: true,
-        filterable: true,
-        resizable: true,
+          sortable: true,
+          filterable: true,
+          resizable: true,
         editable: columnType !== ColumnType.Boolean && !field.toLowerCase().includes('id') && !field.toLowerCase().includes('date')
       };
       
@@ -418,27 +425,42 @@ export class ServerDemoComponent implements OnInit {
 
   private triggerFetch(): void {
     if (this.currentDataType === 'mockApi') {
-      const page = this.currentPage;
-      const pageSize = this.pageSize;
-      const needsFullFetch =
-        (this.currentFilters && this.currentFilters.length > 0) ||
-        (this.currentGroups && this.currentGroups.length > 0) ||
-        (this.currentSort && this.currentSort.length > 0);
-      const fetchPage = needsFullFetch ? 1 : page;
-      const fetchSize = needsFullFetch ? 100 : pageSize;
-      const cacheKey = `p${fetchPage}-s${fetchSize}-sort${JSON.stringify(this.currentSort)}-f${JSON.stringify(this.currentFilters)}-g${JSON.stringify(this.currentGroups)}`;
-      
-      if (this.mockApiCache.has(cacheKey)) {
-        const cached = this.mockApiCache.get(cacheKey) || [];
-        this.processAndEmit(cached, this.mockApiTotal, page, pageSize, needsFullFetch);
+      // If grouping is active, fetch group values first
+      if (this.currentGroups && this.currentGroups.length > 0) {
+        this.fetchGroupValues();
         return;
       }
       
-      this.fetchMockApiPage(fetchPage, fetchSize).subscribe({
+      // Normal fetch without grouping
+      const page = this.currentPage;
+      const pageSize = this.pageSize;
+      
+      // Build cache key based on all parameters (including search)
+      const cacheKey = `p${page}-s${pageSize}-sort${JSON.stringify(this.currentSort)}-f${JSON.stringify(this.currentFilters)}-search${this.currentSearch}-g${JSON.stringify(this.currentGroups)}`;
+      
+      // Check cache
+      if (this.mockApiCache.has(cacheKey)) {
+        const cached = this.mockApiCache.get(cacheKey) || [];
+        const cachedTotal = this.mockApiTotal;
+        this.emitPageResult(cached, cachedTotal, page, pageSize);
+        return;
+      }
+      
+      // Fetch from API with all parameters
+      console.log('[SERVER-SIDE DEBUG] Fetching from API with params:', {
+        page,
+        pageSize,
+        sort: this.currentSort,
+        filters: this.currentFilters,
+        search: this.currentSearch,
+        groups: this.currentGroups
+      });
+      
+      this.fetchMockApiPage(page, pageSize, this.currentSort, this.currentFilters, [], this.currentSearch).subscribe({
         next: ({ data, total }) => {
           this.mockApiTotal = total;
           this.mockApiCache.set(cacheKey, data);
-          this.processAndEmit(data, total, page, pageSize, needsFullFetch);
+          this.emitPageResult(data, total, page, pageSize);
         },
         error: (error) => {
           console.error('[SERVER-SIDE DEBUG] Error loading mockApi page:', error);
@@ -449,65 +471,382 @@ export class ServerDemoComponent implements OnInit {
     }
   }
 
-  private fetchMockApiPage(page: number, pageSize: number): Observable<{ data: any[]; total: number }> {
-    const skip = (page - 1) * pageSize;
-    const url = `https://dummyjson.com/products?limit=${pageSize}&skip=${skip}`;
+  /**
+   * Fetch group metadata (distinct values and counts) - First API call for grouping
+   * API Type: GROUP_METADATA - indicates this is the first API call to get unique groups
+   * Now supports pagination - fetches groups page by page
+   */
+  private fetchGroupValues(): void {
+    if (!this.currentGroups || this.currentGroups.length === 0) {
+      return;
+    }
+    
+    const groupField = this.currentGroups[0].field; // For now, handle single-level grouping
+    const skip = (this.currentPage - 1) * this.pageSize;
+    const metadataCacheKey = `group-metadata-${groupField}-sort${JSON.stringify(this.currentSort)}-f${JSON.stringify(this.currentFilters)}-search${this.currentSearch}-p${this.currentPage}-s${this.pageSize}`;
+    
+    // Check if group metadata is cached for this page
+    if (this.groupMetadataCache.has(metadataCacheKey)) {
+      const cached = this.groupMetadataCache.get(metadataCacheKey)!;
+      this.buildGroupRowsFromMetadata(cached.metadata, cached.total);
+      return;
+    }
+    
+    console.log('[SERVER-SIDE DEBUG] First API call (GROUP_METADATA): Fetching unique group values and counts for field:', groupField, {
+      page: this.currentPage,
+      pageSize: this.pageSize,
+      skip,
+      filters: this.currentFilters,
+      search: this.currentSearch
+    });
+    
+    // First API call: Fetch group metadata with pagination, filters, and search
+    this.fetchGroupMetadataAPI(groupField, this.currentSort, this.currentFilters, skip, this.pageSize, this.currentSearch).subscribe({
+      next: (response) => {
+        // response contains: { groups: [...], total: number, skip: number, limit: number }
+        const groupMetadata = response.groups || [];
+        const totalGroups = response.total || 0;
+        
+        // Cache the metadata for this page
+        this.groupMetadataCache.set(metadataCacheKey, {
+          metadata: groupMetadata,
+          total: totalGroups
+        });
+        
+        console.log('[SERVER-SIDE DEBUG] Group metadata received from API:', {
+          page: this.currentPage,
+          pageSize: this.pageSize,
+          groupsInPage: groupMetadata.length,
+          totalGroups: totalGroups,
+          groups: groupMetadata.map(g => ({ value: g.value, count: g.count }))
+        });
+        
+        // Build and emit group rows (without children)
+        this.buildGroupRowsFromMetadata(groupMetadata, totalGroups);
+      },
+      error: (error) => {
+        console.error('[SERVER-SIDE DEBUG] Error fetching group metadata:', error);
+        this.emitPageResult([], 0, this.currentPage, this.pageSize);
+      }
+    });
+  }
+
+  /**
+   * First API call: Fetch group metadata (unique values and counts) with pagination
+   * Calls local server: GET /api/products/groups?groupField=...&skip=...&limit=...
+   */
+  private fetchGroupMetadataAPI(
+    groupField: string,
+    sort: SortConfig[] = [],
+    filters: FilterCondition[] = [],
+    skip: number = 0,
+    limit: number = 10,
+    search: string = ''
+  ): Observable<{ groups: Array<{ value: any; key: string; count: number }>; total: number; skip: number; limit: number }> {
+    // Build API URL for local server
+    let url = `http://localhost:3000/api/products/groups`;
+    url += `?groupField=${encodeURIComponent(groupField)}`;
+    url += `&skip=${skip}`;
+    url += `&limit=${limit}`;
+    
+    // Add sort parameters
+    if (sort && sort.length > 0) {
+      url += `&sortBy=${encodeURIComponent(JSON.stringify(sort))}`;
+    }
+    
+    // Add filter parameters
+    if (filters && filters.length > 0) {
+      url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
+    }
+    
+    // Add search parameter
+    if (search && search.trim()) {
+      url += `&search=${encodeURIComponent(search.trim())}`;
+    }
+    
+    console.log('[SERVER-SIDE DEBUG] GROUP_METADATA API URL:', url);
+    
     return this.http.get<any>(url).pipe(
       map(resp => {
-        const data = Array.isArray(resp) ? resp : resp?.products || [];
-        const total = resp?.total ?? data.length;
-        return { data, total };
+        // Server returns: { groups: [...], total: number, skip: number, limit: number }
+        const metadata = resp.groups || [];
+        const total = resp.total || 0;
+        
+        // Apply group direction sorting if needed (server already sorts, but ensure consistency)
+        if (this.currentGroups && this.currentGroups.length > 0 && metadata.length > 0) {
+          metadata.sort((a: any, b: any) => {
+            if (this.currentGroups[0].direction === SortDirection.Desc) {
+              return b.key.localeCompare(a.key);
+            }
+            return a.key.localeCompare(b.key);
+          });
+        }
+        
+        console.log('[SERVER-SIDE DEBUG] GROUP_METADATA API response received:', {
+          groupsInPage: metadata.length,
+          totalGroups: total,
+          skip: resp.skip,
+          limit: resp.limit
+        });
+        
+        return {
+          groups: metadata,
+          total: total,
+          skip: resp.skip || skip,
+          limit: resp.limit || limit
+        };
       })
     );
   }
   
-  private processAndEmit(rawData: any[], total: number, page: number, pageSize: number, needsFullFetch: boolean): void {
-    let data = this.parseDates(rawData);
-    
-    // Apply filters/sort client-side when server API cannot
-    if (needsFullFetch) {
-      if (this.currentFilters && this.currentFilters.length > 0) {
-        data = data.filter(row => {
-          return this.currentFilters.every(filter => {
-            const value = this.getFieldValue(row, filter.field);
-            switch (filter.operator) {
-              case FilterOperator.Contains:
-                return String(value).toLowerCase().includes(String(filter.value).toLowerCase());
-              case FilterOperator.GreaterThan:
-                return Number(value) > Number(filter.value);
-              case FilterOperator.LessThan:
-                return Number(value) < Number(filter.value);
-              default:
-                return true;
-            }
-          });
-        });
-      }
-      
-      if (this.currentSort && this.currentSort.length > 0) {
-        data.sort((a, b) => {
-          for (const sort of this.currentSort) {
-            const aVal = this.getFieldValue(a, sort.field);
-            const bVal = this.getFieldValue(b, sort.field);
-            let cmp = 0;
-            if (aVal > bVal) cmp = 1;
-            else if (aVal < bVal) cmp = -1;
-            if (sort.direction === SortDirection.Desc) cmp *= -1;
-            if (cmp !== 0) return cmp;
-          }
-          return 0;
-        });
-      }
-      
-      // Grouping note: mock API does not support grouping; data is left flat.
-      const filteredTotal = data.length;
-      const skip = (page - 1) * pageSize;
-      const pageData = data.slice(skip, skip + pageSize);
-      this.emitPageResult(pageData, filteredTotal, page, pageSize);
+  /**
+   * Build group rows from metadata (without children) - similar to client-side grouping
+   * Children are added immediately after their parent group row if cached
+   * Now supports pagination - total is the total number of groups across all pages
+   */
+  private buildGroupRowsFromMetadata(metadata: Array<{ value: any; key: string; count: number }>, totalGroups: number = 0): void {
+    if (!this.currentGroups || this.currentGroups.length === 0) {
       return;
     }
     
-    this.emitPageResult(data, total, page, pageSize);
+    const groupField = this.currentGroups[0].field;
+    
+    console.log('[SERVER-SIDE DEBUG] Building group rows from metadata:', {
+      groupField,
+      groupsInPage: metadata.length,
+      totalGroups: totalGroups,
+      page: this.currentPage,
+      pageSize: this.pageSize,
+      expandedGroups: Array.from(this.expandedGroups),
+      cachedChildren: Array.from(this.groupChildrenCache.keys())
+    });
+    
+    // Build group rows from metadata
+    const groupRows: any[] = [];
+    let pendingChildrenFetch = false;
+    
+    metadata.forEach((meta) => {
+      const isExpanded = this.expandedGroups.has(meta.key);
+      const groupRow: GroupRow<any> = {
+        __type: GROUP_ROW_TYPE,
+        level: 0,
+        field: groupField,
+        value: meta.value,
+        key: meta.key,
+        expanded: isExpanded,
+        count: meta.count,
+        children: [] // Children will be loaded separately when expanded
+      };
+      groupRows.push(groupRow);
+      
+      // If group is expanded, add its children IMMEDIATELY after the group row
+      if (isExpanded) {
+        // Build cache key that includes filters and search
+        const childrenCacheKey = `${meta.key}-f${JSON.stringify(this.currentFilters)}-search${this.currentSearch}-sort${JSON.stringify(this.currentSort)}`;
+        
+        // Check if children are cached (from second API call)
+        if (this.groupChildrenCache.has(childrenCacheKey)) {
+          const children = this.groupChildrenCache.get(childrenCacheKey)!;
+          console.log('[SERVER-SIDE DEBUG] Adding cached children for group:', meta.key, children.length);
+          // Add children immediately after group row (this is critical for proper display)
+          groupRows.push(...children);
+        } else {
+          // Children not loaded yet - mark that we need to fetch
+          console.log('[SERVER-SIDE DEBUG] Children not cached for group:', meta.key, '- will fetch');
+          pendingChildrenFetch = true;
+          // Trigger second API call to fetch children
+          this.fetchGroupChildren(groupField, meta.key);
+        }
+      }
+    });
+    
+    console.log('[SERVER-SIDE DEBUG] Built group rows structure:', {
+      totalRows: groupRows.length,
+      groupRows: groupRows.filter(r => r.__type === GROUP_ROW_TYPE).length,
+      dataRows: groupRows.filter(r => r.__type !== GROUP_ROW_TYPE).length,
+      pendingChildrenFetch: pendingChildrenFetch,
+      totalGroups: totalGroups
+    });
+    
+    // Emit group rows (with children if expanded and cached)
+    // totalGroups is the total number of groups across all pages (for pagination)
+    // If children are pending, they will trigger rebuildGroupRowsWithChildren when loaded
+    this.emitPageResult(groupRows, totalGroups || metadata.length, this.currentPage, this.pageSize);
+  }
+
+  /**
+   * Fetch children for a specific group - Second API call for grouping
+   * API Type: GROUP_CHILDREN - indicates this is the second API call to get children for a specific group
+   */
+  private fetchGroupChildren(groupField: string, groupValue: string): void {
+    // Build cache key that includes filters and search (children depend on these)
+    const childrenCacheKey = `${groupValue}-f${JSON.stringify(this.currentFilters)}-search${this.currentSearch}-sort${JSON.stringify(this.currentSort)}`;
+    
+    // If already cached, don't fetch again
+    if (this.groupChildrenCache.has(childrenCacheKey)) {
+      console.log('[SERVER-SIDE DEBUG] Children already cached for group:', groupValue, 'with current filters/search');
+      this.rebuildGroupRowsWithChildren();
+      return;
+    }
+    
+    console.log('[SERVER-SIDE DEBUG] Second API call (GROUP_CHILDREN): Fetching children for group:', groupField, '=', groupValue, {
+      filters: this.currentFilters,
+      search: this.currentSearch
+    });
+    
+    // Build filter for this specific group
+    const groupFilter: FilterCondition = {
+      field: groupField,
+      operator: FilterOperator.Equals,
+      value: groupValue === '(null)' ? null : groupValue
+    };
+    
+    const allFilters = [...(this.currentFilters || []), groupFilter];
+    
+    // Second API call: Fetch children with API type indicator (include search)
+    this.fetchGroupChildrenAPI(groupField, groupValue, this.currentSort, allFilters, this.currentSearch).subscribe({
+      next: (children) => {
+        this.groupChildrenCache.set(childrenCacheKey, children);
+        console.log('[SERVER-SIDE DEBUG] Children fetched and cached for group:', groupValue, children.length);
+        // Rebuild group rows with the new children
+        this.rebuildGroupRowsWithChildren();
+      },
+      error: (error) => {
+        console.error('[SERVER-SIDE DEBUG] Error fetching group children:', error);
+      }
+    });
+  }
+
+  /**
+   * Second API call: Fetch children for a specific group
+   * Calls local server: GET /api/products/children?groupField=...&groupValue=...
+   */
+  private fetchGroupChildrenAPI(
+    groupField: string,
+    groupValue: string,
+    sort: SortConfig[] = [],
+    filters: FilterCondition[] = [],
+    search: string = ''
+  ): Observable<any[]> {
+    // Build API URL for local server
+    let url = `http://localhost:3000/api/products/children`;
+    url += `?groupField=${encodeURIComponent(groupField)}`;
+    url += `&groupValue=${encodeURIComponent(groupValue === '(null)' ? '' : String(groupValue))}`;
+    
+    // Add sort parameters
+    if (sort && sort.length > 0) {
+      url += `&sortBy=${encodeURIComponent(JSON.stringify(sort))}`;
+    }
+    
+    // Add filter parameters (exclude the group filter as it's already in groupValue)
+    const nonGroupFilters = filters.filter(f => !(f.field === groupField && f.operator === FilterOperator.Equals));
+    if (nonGroupFilters.length > 0) {
+      url += `&filters=${encodeURIComponent(JSON.stringify(nonGroupFilters))}`;
+    }
+    
+    // Add search parameter
+    if (search && search.trim()) {
+      url += `&search=${encodeURIComponent(search.trim())}`;
+    }
+    
+    console.log('[SERVER-SIDE DEBUG] GROUP_CHILDREN API URL:', url);
+    
+    return this.http.get<any>(url).pipe(
+      map(resp => {
+        // Server returns: { products: [...], total: number }
+        const products = resp.products || [];
+        const parsedData = this.parseDates(products);
+        
+        console.log('[SERVER-SIDE DEBUG] GROUP_CHILDREN API response received:', {
+          childrenCount: parsedData.length,
+          groupField,
+          groupValue
+        });
+        
+        return parsedData;
+      })
+    );
+  }
+
+  /**
+   * Rebuild group rows with expanded children
+   */
+  private rebuildGroupRowsWithChildren(): void {
+    if (!this.currentGroups || this.currentGroups.length === 0) {
+      return;
+    }
+    
+    const groupField = this.currentGroups[0].field;
+    const skip = (this.currentPage - 1) * this.pageSize;
+    const metadataCacheKey = `group-metadata-${groupField}-sort${JSON.stringify(this.currentSort)}-f${JSON.stringify(this.currentFilters)}-p${this.currentPage}-s${this.pageSize}`;
+    
+    // Get cached group metadata for current page
+    const cached = this.groupMetadataCache.get(metadataCacheKey);
+    if (!cached) {
+      // If metadata not cached, fetch it first
+      this.fetchGroupValues();
+      return;
+    }
+    
+    // Rebuild group rows with children (pass total from cache)
+    this.buildGroupRowsFromMetadata(cached.metadata, cached.total);
+  }
+
+  private fetchMockApiPage(
+    page: number, 
+    pageSize: number, 
+    sort: SortConfig[] = [], 
+    filters: FilterCondition[] = [], 
+    groups: GroupConfig[] = [],
+    search?: string
+  ): Observable<{ data: any[]; total: number }> {
+    const skip = (page - 1) * pageSize;
+    
+    // Build API URL for local server
+    let url = `http://localhost:3000/api/products`;
+    url += `?skip=${skip}`;
+    url += `&limit=${pageSize}`;
+    
+    // Add sort parameters
+    if (sort && sort.length > 0) {
+      url += `&sortBy=${encodeURIComponent(JSON.stringify(sort))}`;
+    }
+    
+    // Add filter parameters
+    if (filters && filters.length > 0) {
+      url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
+    }
+    
+    // Add global search parameter
+    if (search && search.trim()) {
+      url += `&search=${encodeURIComponent(search.trim())}`;
+    }
+    
+    // Note: groups parameter is not needed for regular data fetching
+    // Groups are handled by separate endpoints (/api/products/groups and /api/products/children)
+    
+    console.log('[SERVER-SIDE DEBUG] PRODUCTS API URL:', url);
+    
+    return this.http.get<any>(url).pipe(
+      map(resp => {
+        // Server returns: { products: [...], total: number, skip: number, limit: number, hasMore: boolean }
+        const data = resp.products || [];
+        const total = resp.total || 0;
+        
+        // Parse dates in the response
+        const parsedData = this.parseDates(data);
+        
+        console.log('[SERVER-SIDE DEBUG] PRODUCTS API response:', {
+          dataCount: parsedData.length,
+          total,
+          page,
+          pageSize,
+          hasMore: resp.hasMore
+        });
+        
+        return { data: parsedData, total };
+      })
+    );
   }
   
   onRowClick(event: any): void {}
@@ -518,8 +857,71 @@ export class ServerDemoComponent implements OnInit {
     this.currentPage = 1;
     this.triggerFetch();
   }
+  /**
+   * Extract global search term from filters
+   * If multiple Contains filters have the same value, it's likely a global search
+   */
+  private extractSearchFromFilters(filters: FilterCondition[]): { isSearch: boolean; searchTerm: string; searchFields: string[] } {
+    if (!filters || filters.length === 0) {
+      return { isSearch: false, searchTerm: '', searchFields: [] };
+    }
+    
+    // Find all Contains filters
+    const containsFilters = filters.filter(f => f.operator === FilterOperator.Contains);
+    
+    if (containsFilters.length < 2) {
+      // Need at least 2 Contains filters to be considered a global search
+      return { isSearch: false, searchTerm: '', searchFields: [] };
+    }
+    
+    // Check if all Contains filters have the same value
+    const firstValue = containsFilters[0].value;
+    const allSameValue = containsFilters.every(f => String(f.value) === String(firstValue));
+    
+    if (allSameValue) {
+      return {
+        isSearch: true,
+        searchTerm: String(firstValue),
+        searchFields: containsFilters.map(f => f.field)
+      };
+    }
+    
+    return { isSearch: false, searchTerm: '', searchFields: [] };
+  }
+
   onFilterChange(event: FilterChangeEvent): void {
-    this.currentFilters = event?.filters || [];
+    // Extract search filters (Contains filters on multiple fields) vs regular filters
+    const filters = event?.filters || [];
+    
+    // Check if filters are actually search filters (same value across multiple fields with Contains operator)
+    const searchFilters = this.extractSearchFromFilters(filters);
+    
+    const previousSearch = this.currentSearch;
+    const previousFilters = JSON.stringify(this.currentFilters);
+    
+    if (searchFilters.isSearch) {
+      // This is a global search, not individual filters
+      this.currentSearch = searchFilters.searchTerm;
+      // Remove search filters from regular filters
+      this.currentFilters = filters.filter(f => 
+        !(f.operator === FilterOperator.Contains && 
+          searchFilters.searchFields.includes(f.field) &&
+          f.value === searchFilters.searchTerm)
+      );
+    } else {
+      // Regular filters, clear search
+      this.currentSearch = '';
+      this.currentFilters = filters;
+    }
+    
+    // Clear group caches when filters/search change (groups and children depend on filters/search)
+    if (this.currentGroups && this.currentGroups.length > 0) {
+      if (this.currentSearch !== previousSearch || JSON.stringify(this.currentFilters) !== previousFilters) {
+        this.groupMetadataCache.clear();
+        this.groupChildrenCache.clear();
+      }
+    }
+    
     this.currentPage = 1;
     this.triggerFetch();
   }
@@ -531,6 +933,7 @@ export class ServerDemoComponent implements OnInit {
   onDataStateChange(event: DataStateChangeEvent): void {
     this.currentSort = event?.sort || [];
     this.currentFilters = event?.filters || [];
+    const previousGroups = [...this.currentGroups];
     this.currentGroups = event?.groups || [];
     if (event?.take) {
       this.pageSize = event.take;
@@ -538,7 +941,42 @@ export class ServerDemoComponent implements OnInit {
     if (event?.skip !== undefined && event.take) {
       this.currentPage = Math.floor(event.skip / event.take) + 1;
     }
+    // Clear expanded groups and caches when groups change
+    if (event?.groups && JSON.stringify(event.groups) !== JSON.stringify(previousGroups)) {
+      this.expandedGroups.clear();
+      this.groupChildrenCache.clear();
+      this.groupMetadataCache.clear();
+    }
+    
+    // Clear group caches when filters/search change (groups and children depend on filters/search)
+    const previousFilters = JSON.stringify(this.currentFilters);
+    const previousSearch = this.currentSearch;
+    if (JSON.stringify(this.currentFilters) !== previousFilters || this.currentSearch !== previousSearch) {
+      this.groupMetadataCache.clear();
+      this.groupChildrenCache.clear();
+    }
+    
     this.triggerFetch();
+  }
+  onGroupToggle(event: GroupToggleEvent<any>): void {
+    const groupKey = event.groupRow.key;
+    const groupField = event.groupRow.field;
+    
+    if (event.expanded) {
+      // Group is being expanded
+      this.expandedGroups.add(groupKey);
+      console.log('[SERVER-SIDE DEBUG] Group expanded:', groupKey);
+      
+      // Trigger second API call to fetch children for this group
+      this.fetchGroupChildren(groupField, groupKey);
+    } else {
+      // Group is being collapsed
+      this.expandedGroups.delete(groupKey);
+      console.log('[SERVER-SIDE DEBUG] Group collapsed:', groupKey);
+      
+      // Rebuild group rows without children (children stay in cache for quick re-expansion)
+      this.rebuildGroupRowsWithChildren();
+    }
   }
   onEditSave(event: any): void {}
   

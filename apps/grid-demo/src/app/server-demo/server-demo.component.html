@@ -26,6 +26,7 @@
       (filterChange)="onFilterChange($event)"
       (pageChange)="onPageChange($event)"
       (dataStateChange)="onDataStateChange($event)"
+      (groupToggle)="onGroupToggle($event)"
       (editSave)="onEditSave($event)">
     </lib-data-grid>
     <div *ngIf="!serverSideOptions" class="loading-message">Loading data...</div>

@@ -162,6 +162,19 @@ export class DataService<T = any> {
    * Apply client-side operations to server-side result
    */
   private applyClientSideOperations(result: PageResult<T>, params: DataSourceParams, columns?: ColumnDef<T>[]): PageResult<GridRow<T>> {
+    // Check if data is already grouped (contains group rows)
+    const isAlreadyGrouped = result.data && result.data.length > 0 && result.data.some((row: any) => isGroupRow(row));
+    
+    if (isAlreadyGrouped) {
+      // Data is already grouped by server - return as-is without re-grouping
+      // This preserves the server's grouping structure and child order
+      return {
+        ...result,
+        data: result.data as GridRow<T>[],
+        total: result.total
+      };
+    }
+    
     let data: T[] = [...result.data];
     
     // Apply filters (if server didn't handle them)

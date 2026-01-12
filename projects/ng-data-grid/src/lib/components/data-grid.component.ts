@@ -41,6 +41,7 @@ import {
   ColumnReorderEvent,
   ColumnResizeEvent,
   RowDragEvent,
+  GroupToggleEvent,
   GridRow,
   GroupRow,
   isGroupRow,
@@ -82,6 +83,7 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   @Output() columnResize = new EventEmitter<ColumnResizeEvent>();
   @Output() rowDragStart = new EventEmitter<RowDragEvent<T>>();
   @Output() rowDragEnd = new EventEmitter<RowDragEvent<T>>();
+  @Output() groupToggle = new EventEmitter<GroupToggleEvent<T>>();
 
   @ViewChild('gridContainer', { static: false }) gridContainer!: ElementRef<HTMLElement>;
   @ViewChild('headerRow', { static: false }) headerRow!: ElementRef<HTMLElement>;
@@ -142,7 +144,7 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   
   private destroy$ = new Subject<void>();
   private dataParams$ = new Subject<DataSourceParams>();
-  private isObservableDataSource = false;
+  isObservableDataSource = false; // Made public for template access
 
   constructor(
     private dataService: DataService<T>,
@@ -670,13 +672,25 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
    * Toggle group expansion
    */
   toggleGroup(groupRow: GroupRow<T>): void {
-    if (this.expandedGroups.has(groupRow.key)) {
+    const wasExpanded = this.expandedGroups.has(groupRow.key);
+    if (wasExpanded) {
       this.expandedGroups.delete(groupRow.key);
       groupRow.expanded = false;
     } else {
       this.expandedGroups.add(groupRow.key);
       groupRow.expanded = true;
     }
+    
+    // Emit group toggle event
+    const event: GroupToggleEvent<T> = {
+      groupRow,
+      expanded: !wasExpanded
+    };
+    this.groupToggle.emit(event);
+    if (this.events?.groupToggle) {
+      this.events.groupToggle(event);
+    }
+    
     this.cdr.markForCheck();
   }
 
@@ -1345,8 +1359,9 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
    * Handle page change
    */
   onPageChange(page: number): void {
-    // Don't allow manual page changes when grouping is enabled (use infinite scroll instead)
-    if (this.getCurrentGroups().length > 0) {
+    // Don't allow manual page changes when grouping is enabled with client-side data (use infinite scroll instead)
+    // But allow it for server-side data source (Observable) which supports pagination with grouping
+    if (this.getCurrentGroups().length > 0 && !this.isObservableDataSource) {
       return;
     }
     
@@ -1373,8 +1388,9 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
    * Handle page size change
    */
   onPageSizeChange(pageSize: number): void {
-    // Don't allow page size changes when grouping is enabled (use infinite scroll instead)
-    if (this.getCurrentGroups().length > 0) {
+    // Don't allow page size changes when grouping is enabled with client-side data (use infinite scroll instead)
+    // But allow it for server-side data source (Observable) which supports pagination with grouping
+    if (this.getCurrentGroups().length > 0 && !this.isObservableDataSource) {
       return;
     }
     
