@@ -94,10 +94,20 @@ export class DataService<T = any> {
           if (!isProduction) {
             console.log('[DataService] Server response (observable)', {
               dataCount: result.data?.length || 0,
-              total: result.total
+              total: result.total,
+              page: result.page,
+              pageSize: result.pageSize,
+              sampleData: result.data?.slice(0, 2)
             });
           }
-          return this.applyClientSideOperations(result, params, columns);
+          const processed = this.applyClientSideOperations(result, params, columns);
+          if (!isProduction) {
+            console.log('[DataService] After client-side operations', {
+              dataCount: processed.data?.length || 0,
+              total: processed.total
+            });
+          }
+          return processed;
         })
       );
     } else {
@@ -160,6 +170,8 @@ export class DataService<T = any> {
 
   /**
    * Apply client-side operations to server-side result
+   * For Observable data sources, we assume the server has already handled filtering, sorting, and pagination
+   * So we only apply grouping if needed, and skip filtering/sorting to avoid double-processing
    */
   private applyClientSideOperations(result: PageResult<T>, params: DataSourceParams, columns?: ColumnDef<T>[]): PageResult<GridRow<T>> {
     // Check if data is already grouped (contains group rows)
@@ -177,20 +189,14 @@ export class DataService<T = any> {
     
     let data: T[] = [...result.data];
     
-    // Apply filters (if server didn't handle them)
-    if (params.filters && params.filters.length > 0) {
-      data = this.applyFilters(data, params.filters);
-    }
+    // For Observable data sources, assume server has already handled filtering and sorting
+    // Only apply client-side operations if explicitly needed (e.g., for grouping)
+    // Skip filtering and sorting to avoid double-processing server-side data
     
     // Total should be the original data count, not grouped row count
     const total = result.total;
     
-    // Apply sorting BEFORE grouping (to preserve group structure)
-    if (params.sort && params.sort.length > 0) {
-      data = this.applySorting(data, params.sort);
-    }
-    
-    // Process grouping if needed
+    // Process grouping if needed (server might not handle grouping)
     let processedData: GridRow<T>[] = data;
     if (params.groups && params.groups.length > 0) {
       processedData = this.applyGrouping(data, params.groups, columns);

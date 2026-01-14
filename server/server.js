@@ -8,6 +8,11 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 
+// Helper function to add delay (for testing loading indicators)
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // Helper function to fetch from dummyjson.com
 function fetchFromDummyJson(url) {
   return new Promise((resolve, reject) => {
@@ -114,6 +119,9 @@ function applySorting(data, sort) {
 // Returns only unique group values and their counts (with pagination)
 app.get('/api/products/groups', async (req, res) => {
   try {
+    // Add 3 second delay for testing loading indicator
+    await delay(3000);
+    
     const { groupField, sortBy, filters, skip, limit, search, searchFields } = req.query;
     
     if (!groupField) {
@@ -250,6 +258,9 @@ app.get('/api/products/groups', async (req, res) => {
 // Returns only children for a specific group value
 app.get('/api/products/children', async (req, res) => {
   try {
+    // Add 3 second delay for testing loading indicator
+    await delay(3000);
+    
     const { groupField, groupValue, sortBy, filters, search, searchFields } = req.query;
     
     if (!groupField || groupValue === undefined) {
@@ -329,6 +340,181 @@ app.get('/api/products/children', async (req, res) => {
   }
 });
 
+// Endpoint: GET /api/products/nested-groups
+// Returns unique group values for a nested level, filtered by parent group values
+// Supports multiple parent groups via parentFilters parameter (JSON array of {field, value})
+app.get('/api/products/nested-groups', async (req, res) => {
+  try {
+    // Add 3 second delay for testing loading indicator
+    await delay(3000);
+    
+    const { parentGroupField, parentGroupValue, parentFilters, childGroupField, sortBy, filters, search, searchFields } = req.query;
+    
+    // Support both old format (single parent) and new format (multiple parents)
+    let parsedParentFilters = [];
+    if (parentFilters) {
+      try {
+        parsedParentFilters = JSON.parse(parentFilters);
+      } catch (e) {
+        console.warn('[SERVER] Could not parse parentFilters:', e);
+      }
+    } else if (parentGroupField && parentGroupValue !== undefined) {
+      // Legacy format: single parent
+      parsedParentFilters = [{
+        field: parentGroupField,
+        value: parentGroupValue === '(null)' || parentGroupValue === '' ? null : parentGroupValue
+      }];
+    }
+    
+    if (!childGroupField || parsedParentFilters.length === 0) {
+      return res.status(400).json({ error: 'childGroupField and at least one parent filter (via parentFilters or parentGroupField/parentGroupValue) are required' });
+    }
+    
+    console.log('[SERVER] NESTED_GROUPS API called:', { 
+      parentFilters: parsedParentFilters,
+      childGroupField, 
+      sortBy, 
+      filters, 
+      search 
+    });
+    
+    // Fetch all products from dummyjson.com
+    const url = 'https://dummyjson.com/products?limit=100&skip=0';
+    const response = await fetchFromDummyJson(url);
+    const allProducts = response.products || [];
+    
+    // Parse filters if provided
+    let parsedFilters = [];
+    if (filters) {
+      try {
+        parsedFilters = JSON.parse(filters);
+      } catch (e) {
+        console.warn('[SERVER] Could not parse filters:', e);
+      }
+    }
+    
+    // Parse sort if provided
+    let parsedSort = [];
+    if (sortBy) {
+      try {
+        parsedSort = JSON.parse(sortBy);
+      } catch (e) {
+        console.warn('[SERVER] Could not parse sortBy:', e);
+      }
+    }
+    
+    // Parse search fields if provided
+    let parsedSearchFields = [];
+    if (searchFields) {
+      try {
+        parsedSearchFields = JSON.parse(searchFields);
+      } catch (e) {
+        console.warn('[SERVER] Could not parse searchFields:', e);
+      }
+    }
+    
+    // Apply global search first (before filters)
+    let filteredData = applyGlobalSearch(allProducts, search, parsedSearchFields);
+    
+    // Add all parent group filters (supporting multiple parents)
+    const parentGroupFilters = parsedParentFilters.map(pf => ({
+      field: pf.field,
+      operator: 'Equals',
+      value: pf.value === '(null)' || pf.value === '' ? null : pf.value
+    }));
+    const allFilters = [...parsedFilters, ...parentGroupFilters];
+    
+    // Apply filters (includes parent group filter)
+    filteredData = applyFilters(filteredData, allFilters);
+    
+    // Apply sorting
+    filteredData = applySorting(filteredData, parsedSort);
+    
+    // Group data by child group field value (filtered by parent)
+    const grouped = new Map();
+    filteredData.forEach(item => {
+      const value = getFieldValue(item, childGroupField);
+      const key = value != null ? String(value) : '(null)';
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
+      }
+      grouped.get(key).push(item);
+    });
+    
+    // Build metadata array (only unique values and counts for child group)
+    const metadata = [];
+    grouped.forEach((items, key) => {
+      metadata.push({
+        value: key === '(null)' ? null : key,
+        key: key,
+        count: items.length
+      });
+    });
+    
+    // Sort metadata
+    if (parsedSort && parsedSort.length > 0) {
+      // Find sort config for child group field
+      const childSort = parsedSort.find(s => s.field === childGroupField);
+      if (childSort) {
+        metadata.sort((a, b) => {
+          if (childSort.direction === 'Desc') {
+            return b.key.localeCompare(a.key);
+          }
+          return a.key.localeCompare(b.key);
+        });
+      } else {
+        metadata.sort((a, b) => a.key.localeCompare(b.key));
+      }
+    } else {
+      metadata.sort((a, b) => a.key.localeCompare(b.key));
+    }
+    
+    console.log('[SERVER] NESTED_GROUPS response:', {
+      parentFilters: parsedParentFilters,
+      childGroupField,
+      totalProducts: allProducts.length,
+      afterParentFilter: filteredData.length,
+      uniqueChildGroups: metadata.length,
+      sampleGroups: metadata.slice(0, 3).map(g => `${g.key}(${g.count})`).join(', ')
+    });
+    
+    // Return unique child group values with counts
+    res.json({
+      groups: metadata,
+      total: metadata.length,
+      parentGroupField,
+      parentGroupValue,
+      childGroupField
+    });
+    
+  } catch (error) {
+    console.error('[SERVER] Error in /api/products/nested-groups:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Helper function to recursively get all field paths from an object
+function getAllFieldPaths(obj, prefix = '') {
+  const paths = [];
+  if (obj && typeof obj === 'object' && !Array.isArray(obj) && !(obj instanceof Date)) {
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        const fullPath = prefix ? `${prefix}.${key}` : key;
+        const value = obj[key];
+        
+        // If it's a nested object (but not an array or date), recurse
+        if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+          paths.push(...getAllFieldPaths(value, fullPath));
+        } else {
+          // Add the field path
+          paths.push(fullPath);
+        }
+      }
+    }
+  }
+  return paths;
+}
+
 // Helper function to apply global search
 function applyGlobalSearch(data, searchTerm, searchFields = []) {
   if (!searchTerm || !searchTerm.trim()) {
@@ -337,16 +523,30 @@ function applyGlobalSearch(data, searchTerm, searchFields = []) {
   
   const searchLower = searchTerm.toLowerCase().trim();
   
-  // If no specific fields provided, search in common text fields
-  const fieldsToSearch = searchFields.length > 0 
-    ? searchFields 
-    : ['title', 'name', 'description', 'category', 'brand'];
+  // If no specific fields provided, search in ALL fields of the first item
+  let fieldsToSearch = searchFields;
+  if (fieldsToSearch.length === 0 && data.length > 0) {
+    // Get all field paths from the first item
+    fieldsToSearch = getAllFieldPaths(data[0]);
+    console.log('[SERVER] Global search - searching in all fields:', fieldsToSearch.slice(0, 10), '... (total:', fieldsToSearch.length, 'fields)');
+  }
   
   return data.filter(item => {
     return fieldsToSearch.some(field => {
       const value = getFieldValue(item, field);
       if (value == null) return false;
-      return String(value).toLowerCase().includes(searchLower);
+      
+      // Convert value to string and check if it contains the search term
+      // Handle arrays by joining them
+      let searchableValue = value;
+      if (Array.isArray(value)) {
+        searchableValue = value.join(' ');
+      } else if (typeof value === 'object' && !(value instanceof Date)) {
+        // Skip nested objects (they're already handled by getAllFieldPaths)
+        return false;
+      }
+      
+      return String(searchableValue).toLowerCase().includes(searchLower);
     });
   });
 }
@@ -355,6 +555,9 @@ function applyGlobalSearch(data, searchTerm, searchFields = []) {
 // Main endpoint for fetching products with pagination, filtering, sorting, and search
 app.get('/api/products', async (req, res) => {
   try {
+    // Add 3 second delay for testing loading indicator
+    await delay(3000);
+    
     const { skip, limit, sortBy, filters, search, searchFields } = req.query;
     
     // Parse pagination parameters

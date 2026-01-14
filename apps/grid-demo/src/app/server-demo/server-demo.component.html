@@ -16,20 +16,25 @@
   </div>
   
   <div class="demo-grid">
-    <lib-data-grid
-      *ngIf="serverSideOptions"
-      [options]="serverSideOptions"
-      (rowClick)="onRowClick($event)"
-      (cellClick)="onCellClick($event)"
-      (selectionChange)="onSelectionChange($event)"
-      (sortChange)="onSortChange($event)"
-      (filterChange)="onFilterChange($event)"
-      (pageChange)="onPageChange($event)"
-      (dataStateChange)="onDataStateChange($event)"
-      (groupToggle)="onGroupToggle($event)"
-      (editSave)="onEditSave($event)">
-    </lib-data-grid>
-    <div *ngIf="!serverSideOptions" class="loading-message">Loading data...</div>
+    <div class="grid-wrapper" [class.loading]="isLoading">
+      <lib-data-grid
+        *ngIf="serverSideOptions"
+        [options]="serverSideOptions"
+        (rowClick)="onRowClick($event)"
+        (cellClick)="onCellClick($event)"
+        (selectionChange)="onSelectionChange($event)"
+        (sortChange)="onSortChange($event)"
+        (filterChange)="onFilterChange($event)"
+        (pageChange)="onPageChange($event)"
+        (dataStateChange)="onDataStateChange($event)"
+        (groupToggle)="onGroupToggle($event)"
+        (editSave)="onEditSave($event)">
+      </lib-data-grid>
+      <div *ngIf="!serverSideOptions" class="loading-message">Loading data...</div>
+      
+      <!-- Loading Indicator - Shows in data area only -->
+      <!-- The loading indicator is added via CSS pseudo-elements on grid-body -->
+    </div>
   </div>
   
   <div class="demo-info">
