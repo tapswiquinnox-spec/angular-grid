@@ -84,6 +84,7 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   @Output() rowDragStart = new EventEmitter<RowDragEvent<T>>();
   @Output() rowDragEnd = new EventEmitter<RowDragEvent<T>>();
   @Output() groupToggle = new EventEmitter<GroupToggleEvent<T>>();
+  @Output() loadMore = new EventEmitter<{ groupKey: string; groupField: string; groupValue: any; parentKey: string }>();
 
   @ViewChild('gridContainer', { static: false }) gridContainer!: ElementRef<HTMLElement>;
   @ViewChild('headerRow', { static: false }) headerRow!: ElementRef<HTMLElement>;
@@ -629,13 +630,16 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
     // Clear existing expanded groups
     this.expandedGroups.clear();
     
-    // Add all groups to expanded set if they are marked as expanded
+    // Add all groups to expanded set only if they are explicitly marked as expanded
     this.data.forEach(row => {
       if (isGroupRow(row)) {
-        // Default groups to expanded (can be changed via options)
-        if (row.expanded !== false) {
-          row.expanded = true;
+        // Only expand groups that are explicitly set to expanded: true
+        // Groups with expanded: false or undefined should remain collapsed
+        if (row.expanded === true) {
           this.expandedGroups.add(row.key);
+        } else {
+          // Ensure collapsed groups are explicitly set to false
+          row.expanded = false;
         }
       }
     });
@@ -771,6 +775,13 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
    */
   isGroupRowType(row: GridRow<T>): row is GroupRow<T> {
     return isGroupRow(row);
+  }
+
+  /**
+   * Check if a row is a "Load More" row
+   */
+  isLoadMoreRow(row: any): boolean {
+    return row && row.__type === '__LOAD_MORE_ROW__';
   }
 
   /**
@@ -1076,9 +1087,30 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   }
 
   /**
+   * Handle load more click
+   */
+  onLoadMoreClick(row: any, event: MouseEvent): void {
+    event.stopPropagation();
+    if (row && row.__type === '__LOAD_MORE_ROW__') {
+      this.loadMore.emit({
+        groupKey: row.groupKey,
+        groupField: row.groupField,
+        groupValue: row.groupValue,
+        parentKey: row.parentKey
+      });
+    }
+  }
+
+  /**
    * Handle row click
    */
   onRowClick(row: GridRow<T>, index: number, event: MouseEvent): void {
+    // Handle load more row click
+    if (this.isLoadMoreRow(row)) {
+      this.onLoadMoreClick(row, event);
+      return;
+    }
+    
     // Handle group row click (toggle expansion)
     if (isGroupRow(row)) {
       this.toggleGroup(row);

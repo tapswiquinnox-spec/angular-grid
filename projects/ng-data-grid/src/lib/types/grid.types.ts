@@ -258,4 +258,15 @@ export interface GroupToggleEvent<T> {
   expanded: boolean;
 }
 
+/**
+ * Load more event for paginated group children
+ */
+export interface LoadMoreEvent {
+  groupKey: string;
+  groupField: string;
+  groupValue: any;
+  parentKey: string;
+  level?: number;
+}
+
 

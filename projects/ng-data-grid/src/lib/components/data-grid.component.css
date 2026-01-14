@@ -788,6 +788,37 @@
   transition: all 0.15s ease;
 }
 
+.load-more-row {
+  background-color: var(--load-more-row-bg, #f9f9f9);
+  border-top: 1px solid var(--border-color, #e0e0e0);
+  cursor: pointer;
+  user-select: none;
+}
+
+.load-more-row:hover {
+  background-color: var(--load-more-row-hover-bg, #f0f0f0);
+}
+
+.load-more-button {
+  background-color: var(--primary-color, #0078d4);
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.load-more-button:hover {
+  background-color: var(--primary-hover-color, #106ebe);
+}
+
+.load-more-button:active {
+  background-color: var(--primary-active-color, #005a9e);
+}
+
 .group-row:hover {
   background: linear-gradient(to right, #d0e8f0 0%, #b8dce8 100%);
 }

@@ -261,13 +261,18 @@ app.get('/api/products/children', async (req, res) => {
     // Add 3 second delay for testing loading indicator
     await delay(3000);
     
-    const { groupField, groupValue, sortBy, filters, search, searchFields } = req.query;
+    const { groupField, groupValue, sortBy, filters, search, searchFields, skip, limit } = req.query;
     
     if (!groupField || groupValue === undefined) {
       return res.status(400).json({ error: 'groupField and groupValue parameters are required' });
     }
     
-    console.log('[SERVER] GROUP_CHILDREN API called:', { groupField, groupValue, sortBy, filters, search });
+    // Parse pagination parameters
+    const skipNum = parseInt(skip) || 0;
+    const limitNum = parseInt(limit) || 10;
+    const validLimit = limitNum > 0 ? limitNum : 10;
+    
+    console.log('[SERVER] GROUP_CHILDREN API called:', { groupField, groupValue, sortBy, filters, search, skip: skipNum, limit: validLimit });
     
     // Fetch all products from dummyjson.com
     const url = 'https://dummyjson.com/products?limit=100&skip=0';
@@ -321,17 +326,30 @@ app.get('/api/products/children', async (req, res) => {
     // Apply sorting
     filteredData = applySorting(filteredData, parsedSort);
     
+    // Get total count before pagination
+    const totalChildren = filteredData.length;
+    
+    // Apply pagination
+    const paginatedData = filteredData.slice(skipNum, skipNum + validLimit);
+    
     console.log('[SERVER] GROUP_CHILDREN response:', {
       totalProducts: allProducts.length,
-      childrenCount: filteredData.length,
+      totalChildren: totalChildren,
+      returnedChildren: paginatedData.length,
+      skip: skipNum,
+      limit: validLimit,
       groupField,
-      groupValue
+      groupValue,
+      sliceRange: `${skipNum} to ${skipNum + validLimit}`,
+      actualReturned: paginatedData.length
     });
     
-    // Return only children for this specific group
+    // Return paginated children for this specific group
     res.json({
-      products: filteredData,
-      total: filteredData.length
+      products: paginatedData,
+      total: totalChildren,
+      skip: skipNum,
+      limit: validLimit
     });
     
   } catch (error) {

@@ -316,9 +316,25 @@
         </div>
       </div>
       
+      <!-- Load More Row -->
+      <div 
+        *ngIf="isLoadMoreRow(row)"
+        class="grid-row load-more-row"
+        [style.height.px]="rowHeight"
+        [style.top.px]="options.virtualScroll ? (virtualScrollStart + i) * rowHeight : null"
+        (click)="onLoadMoreClick(row, $event)"
+        [attr.aria-rowindex]="virtualScrollStart + i + 1"
+        [attr.role]="'row'">
+        <div class="cell" [style.flex]="'1 1 auto'" style="text-align: center; padding: 8px;">
+          <button class="load-more-button" (click)="onLoadMoreClick(row, $event); $event.stopPropagation()">
+            Load More ({{ $any(row).loaded }} of {{ $any(row).total }})
+          </button>
+        </div>
+      </div>
+      
       <!-- Data Row -->
       <div 
-        *ngIf="!isGroupRowType(row)"
+        *ngIf="!isGroupRowType(row) && !isLoadMoreRow(row)"
         class="grid-row"
         [class.selected]="isRowSelected(row)"
         [class.current]="currentRow === row"
