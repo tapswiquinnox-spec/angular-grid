@@ -3,18 +3,18 @@
     #dataGrid
     *ngIf="gridOptions"
     [options]="gridOptions"
-    (rowClick)="onRowClick($event)"
-    (cellClick)="onCellClick($event)"
-    (selectionChange)="onSelectionChange($event)"
-    (sortChange)="onSortChange($event)"
+      (sortChange)="onSortChange($event)"
     (filterChange)="onFilterChange($event)"
     (pageChange)="onPageChange($event)"
     (dataStateChange)="onDataStateChange($event)"
     (groupToggle)="onGroupToggle($event)"
-    (loadMore)="onLoadMore($event)"
-    (editSave)="onEditSave($event)">
+      (loadMore)="onLoadMore($event)"
+      (exportRequest)="onExportRequest($event)">
   </lib-data-grid>
-  <div *ngIf="!gridOptions" class="loading-message">Loading data...</div>
+  <div *ngIf="!gridOptions" class="loading-message">
+    <span class="loading-spinner" aria-hidden="true"></span>
+    <span class="loading-text">Loading data...</span>
+  </div>
   
   <!-- Loading Indicator - Shows in data area only -->
   <!-- The loading indicator is added via CSS pseudo-elements on grid-body -->

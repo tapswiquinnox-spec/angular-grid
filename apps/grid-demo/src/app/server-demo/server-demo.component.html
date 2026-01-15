@@ -1,41 +1,9 @@
 <div class="demo-container">
-  <div class="demo-controls">
-    <h2>Server-Side Grid Demo</h2>
-    <div class="data-type-switcher">
-      <button 
-        *ngFor="let type of dataTypes" 
-        [class.active]="currentDataType === type.value"
-        (click)="loadDataByType(type.value)"
-        class="data-type-btn">
-        {{ type.label }}
-      </button>
-    </div>
-    <div class="mode-switcher">
-      <a routerLink="/" class="back-link">← Back to Client-Side</a>
-    </div>
-  </div>
-  
   <div class="demo-grid">
     <app-server-grid
       [apiResponses$]="apiResponses$"
       (apiRequest)="onApiRequest($event)">
     </app-server-grid>
-  </div>
-  
-  <div class="demo-info">
-    <h3>Server-Side Features</h3>
-    <ul>
-      <li>✅ Server-side data loading (50 rows)</li>
-      <li>✅ Pagination with server requests</li>
-      <li>✅ Column sorting, filtering</li>
-      <li>✅ Column resizing and reordering</li>
-      <li>✅ Cell editing</li>
-      <li>✅ Multiple row selection</li>
-      <li>✅ Export to CSV, Excel, PDF</li>
-      <li>✅ Settings persistence (localStorage)</li>
-      <li>✅ Custom cell templates</li>
-      <li>✅ Keyboard navigation</li>
-    </ul>
   </div>
 </div>
 

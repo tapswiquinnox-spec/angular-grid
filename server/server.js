@@ -665,6 +665,176 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+// Helper function to convert data to CSV
+function convertToCSV(data, columns) {
+  if (!data || data.length === 0) {
+    return '';
+  }
+  
+  // Get headers from columns or use all keys from first item
+  const headers = columns && columns.length > 0 
+    ? columns.map(col => col.title || col.field)
+    : Object.keys(data[0]);
+  
+  // Build CSV rows
+  const rows = [headers.join(',')];
+  
+  data.forEach(item => {
+    const values = columns && columns.length > 0
+      ? columns.map(col => {
+          const value = getFieldValue(item, col.field);
+          // Escape commas and quotes in CSV
+          const str = value != null ? String(value) : '';
+          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        })
+      : Object.values(item).map(v => {
+          const str = v != null ? String(v) : '';
+          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        });
+    rows.push(values.join(','));
+  });
+  
+  return rows.join('\n');
+}
+
+// Helper function to convert data to Excel (CSV format with proper headers)
+function convertToExcel(data, columns) {
+  // For now, return CSV format (can be enhanced with xlsx library)
+  return convertToCSV(data, columns);
+}
+
+// Helper function to convert data to PDF (HTML table)
+function convertToPDF(data, columns) {
+  const headers = columns && columns.length > 0 
+    ? columns.map(col => col.title || col.field)
+    : Object.keys(data[0] || {});
+  
+  let html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; font-weight: bold; }
+    tr:nth-child(even) { background-color: #f9f9f9; }
+  </style>
+</head>
+<body>
+  <h1>Product Export</h1>
+  <table>
+    <thead>
+      <tr>
+        ${headers.map(h => `<th>${h}</th>`).join('')}
+      </tr>
+    </thead>
+    <tbody>
+      ${data.map(item => {
+        const values = columns && columns.length > 0
+          ? columns.map(col => {
+              const value = getFieldValue(item, col.field);
+              return value != null ? String(value) : '';
+            })
+          : Object.values(item).map(v => v != null ? String(v) : '');
+        return `<tr>${values.map(v => `<td>${v.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`).join('')}</tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+</body>
+</html>`;
+  
+  return html;
+}
+
+// Endpoint: POST /api/products/export
+// Exports ALL data (not paginated) in the requested format with current filters/sort
+app.post('/api/products/export', async (req, res) => {
+  try {
+    const { format, sort, filters, groups, columns, search } = req.body;
+    
+    if (!format || !['csv', 'excel', 'pdf'].includes(format)) {
+      return res.status(400).json({ error: 'format must be csv, excel, or pdf' });
+    }
+    
+    console.log('[SERVER] EXPORT API called:', { format, sort, filters, groups, columns: columns?.length, search });
+    
+    // Fetch ALL products from dummyjson.com (limit 100 for demo, but no pagination)
+    const url = 'https://dummyjson.com/products?limit=100&skip=0';
+    const response = await fetchFromDummyJson(url);
+    const allProducts = response.products || [];
+    
+    // Parse filters if provided
+    let parsedFilters = filters || [];
+    
+    // Parse sort if provided
+    let parsedSort = sort || [];
+    
+    // Apply global search first (before filters)
+    let processedData = applyGlobalSearch(allProducts, search, []);
+    
+    // Apply filters
+    processedData = applyFilters(processedData, parsedFilters);
+    
+    // Note: Groups are typically handled client-side for display, but for export
+    // we export all matching data (not grouped). If you want grouped export,
+    // you would need to handle groups here.
+    
+    // Apply sorting
+    processedData = applySorting(processedData, parsedSort);
+    
+    console.log('[SERVER] EXPORT response:', {
+      totalProducts: allProducts.length,
+      afterSearchAndFilters: processedData.length,
+      format
+    });
+    
+    // Convert to requested format
+    let content;
+    let contentType;
+    let filename;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    
+    switch (format) {
+      case 'csv':
+        content = convertToCSV(processedData, columns);
+        contentType = 'text/csv';
+        filename = `export-${timestamp}.csv`;
+        break;
+      case 'excel':
+        content = convertToExcel(processedData, columns);
+        contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        filename = `export-${timestamp}.xlsx`;
+        // For Excel, we'll send CSV with .xlsx extension (can be enhanced with xlsx library)
+        break;
+      case 'pdf':
+        content = convertToPDF(processedData, columns);
+        contentType = 'application/pdf';
+        filename = `export-${timestamp}.pdf`;
+        // For PDF, we'll send HTML (can be enhanced with pdf library like puppeteer or pdfkit)
+        break;
+    }
+    
+    // Set headers for file download
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    // Send content
+    res.send(content);
+    
+  } catch (error) {
+    console.error('[SERVER] Error in /api/products/export:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
@@ -676,4 +846,5 @@ app.listen(PORT, () => {
   console.log(`[SERVER] Products endpoint: http://localhost:${PORT}/api/products`);
   console.log(`[SERVER] Group metadata endpoint: http://localhost:${PORT}/api/products/groups`);
   console.log(`[SERVER] Group children endpoint: http://localhost:${PORT}/api/products/children`);
+  console.log(`[SERVER] Export endpoint: http://localhost:${PORT}/api/products/export`);
 });

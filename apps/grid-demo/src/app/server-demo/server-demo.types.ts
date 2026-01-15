@@ -4,7 +4,8 @@ export type ServerDemoApiEventType =
   | 'productsPage'
   | 'groupMetadata'
   | 'groupChildren'
-  | 'nestedGroups';
+  | 'nestedGroups'
+  | 'export';
 
 export interface ServerDemoApiRequest {
   requestId: string;
@@ -46,6 +47,15 @@ export interface NestedGroupsRequest {
   childGroupField: string;
   sort?: SortConfig[];
   filters?: FilterCondition[];
+  search?: string;
+}
+
+export interface ExportRequest {
+  format: 'csv' | 'excel' | 'pdf';
+  sort?: SortConfig[];
+  filters?: FilterCondition[];
+  groups?: GroupConfig[];
+  columns?: Array<{ field: string; title?: string }>;
   search?: string;
 }
 

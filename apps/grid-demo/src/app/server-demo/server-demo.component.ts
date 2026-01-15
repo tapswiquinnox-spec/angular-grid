@@ -8,7 +8,8 @@ import {
   ProductsPageRequest,
   GroupMetadataRequest,
   GroupChildrenRequest,
-  NestedGroupsRequest
+  NestedGroupsRequest,
+  ExportRequest
 } from './server-demo.types';
 
 /**
@@ -22,12 +23,6 @@ import {
 })
 export class ServerDemoComponent implements OnInit {
   
-  currentDataType: 'mockApi' = 'mockApi';
-  
-  dataTypes: Array<{ value: 'mockApi'; label: string }> = [
-    { value: 'mockApi', label: 'Mock API (Products)' }
-  ];
-  
   // Child -> Parent (single event) / Parent -> Child (single stream)
   private readonly apiResponsesSubject = new Subject<ServerDemoApiResponse>();
   apiResponses$ = this.apiResponsesSubject.asObservable();
@@ -36,11 +31,6 @@ export class ServerDemoComponent implements OnInit {
   
   ngOnInit(): void {
     // Component is ready, child will request initial data
-  }
-  
-  loadDataByType(type: 'mockApi' = 'mockApi'): void {
-    this.currentDataType = type;
-    // Reset handled by child component
   }
 
   /**
@@ -107,6 +97,18 @@ export class ServerDemoComponent implements OnInit {
             });
           },
           error: (err) => this.apiResponsesSubject.next({ requestId: req.requestId, eventType: 'nestedGroups', data: { error: String(err) } })
+        });
+        return;
+      }
+      case 'export': {
+        const r = req.eventData as ExportRequest;
+        this.fetchExportFile(r).subscribe({
+          next: ({ blob, filename }) => {
+            this.downloadBlob(blob, filename);
+          },
+          error: (err) => {
+            console.error('Export failed', err);
+          }
         });
         return;
       }
@@ -228,5 +230,32 @@ export class ServerDemoComponent implements OnInit {
         };
       })
     );
+  }
+
+  private fetchExportFile(request: ExportRequest): Observable<{ blob: Blob; filename: string }> {
+    const url = `http://localhost:3000/api/products/export`;
+    return this.http.post(url, request, { observe: 'response', responseType: 'blob' }).pipe(
+      map((response) => {
+        const contentDisposition = response.headers.get('content-disposition') || '';
+        const match = /filename="?([^"]+)"?/i.exec(contentDisposition);
+        const extension = request.format === 'excel' ? 'xlsx' : request.format;
+        const fallbackName = `export-${Date.now()}.${extension}`;
+        return {
+          blob: response.body as Blob,
+          filename: match?.[1] || fallbackName
+        };
+      })
+    );
+  }
+
+  private downloadBlob(blob: Blob, filename: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   }
 }

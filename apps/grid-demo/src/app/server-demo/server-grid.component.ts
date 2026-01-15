@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, TemplateRef, ViewChild, ChangeDetectorRef, ElementRef } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, TemplateRef, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import {
@@ -14,6 +14,7 @@ import {
   GroupToggleEvent,
   GROUP_ROW_TYPE,
   LoadMoreEvent,
+  ExportRequestEvent,
   PageChangeEvent,
   PageResult,
   SelectionMode,
@@ -30,22 +31,6 @@ import {
   ServerDemoApiResponse
 } from './server-demo.types';
 
-export type ServerGridEventType =
-  | 'rowClick'
-  | 'cellClick'
-  | 'selectionChange'
-  | 'sortChange'
-  | 'filterChange'
-  | 'pageChange'
-  | 'dataStateChange'
-  | 'groupToggle'
-  | 'loadMore'
-  | 'editSave';
-
-export interface ServerGridEvent {
-  eventType: ServerGridEventType;
-  eventData: any;
-}
 
 /**
  * Child component that handles ALL grid logic, state, caching, and UI.
@@ -71,7 +56,6 @@ export class ServerGridComponent implements OnInit, OnDestroy {
   // Data/state
   private serverData: any[] = [];
   private dataStream = new BehaviorSubject<PageResult<any>>({ data: [], total: 0, page: 1, pageSize: 10 });
-  private mockApiCache = new Map<string, any[]>();
   private mockApiTotal = 0;
   private currentPage = 1;
   private pageSize = 10;
@@ -131,17 +115,6 @@ export class ServerGridComponent implements OnInit, OnDestroy {
   // -------------------------
   // Grid Event Handlers (from lib-data-grid)
   // -------------------------
-  onRowClick(event: any): void {
-    // Handle row click if needed
-  }
-
-  onCellClick(event: any): void {
-    // Handle cell click if needed
-  }
-
-  onSelectionChange(event: any): void {
-    // Handle selection change if needed
-  }
 
   onSortChange(event: SortChangeEvent): void {
     this.currentSort = event?.sort || [];
@@ -335,9 +308,10 @@ export class ServerGridComponent implements OnInit, OnDestroy {
     this.loadMoreGroupChildren(event.groupKey, event.groupField, event.groupValue, event.parentKey);
   }
 
-  onEditSave(event: any): void {
-    // Handle edit save if needed
+  onExportRequest(event: ExportRequestEvent): void {
+    this.emitRequest('export', event);
   }
+
 
   getStars(rating: number): string {
     const fullStars = Math.floor(rating);
@@ -827,7 +801,6 @@ export class ServerGridComponent implements OnInit, OnDestroy {
   }
 
   private clearCaches(): void {
-    this.mockApiCache.clear();
     // Clear group caches when filters/search change (groups and children depend on filters/search)
     if (this.currentGroups && this.currentGroups.length > 0) {
       this.groupMetadataCache.clear();
@@ -1019,8 +992,8 @@ export class ServerGridComponent implements OnInit, OnDestroy {
       enableExport: true,
       exportFormats: ['csv', 'excel', 'pdf'],
       keyboardNavigation: true,
-      rowHeight: 40,
-      headerHeight: 40,
+      rowHeight: 32,
+      headerHeight: 32,
       enableSearch: true,
       searchPlaceholder: 'Search all columns...'
     };

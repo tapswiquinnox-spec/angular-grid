@@ -1,8 +1,5 @@
 <div 
   class="ng-data-grid"
-  [class.rtl]="options.rtl"
-  [class.dark-theme]="options.theme === 'dark'"
-  [class.light-theme]="options.theme === 'light'"
   [attr.role]="'grid'"
   [attr.aria-label]="'Data Grid'"
   #gridContainer>
@@ -258,10 +255,93 @@
   
   <!-- Body -->
   <div class="grid-body" #bodyContainer [style.height.px]="options.virtualScroll ? 400 : null" [style.overflow-y]="options.virtualScroll ? 'auto' : null">
-    <!-- Loading Indicator -->
-    <div class="loading-indicator" *ngIf="loading">
-      <div class="spinner"></div>
-      <span>Loading...</span>
+    <!-- Loading Indicator - Always rendered, shown via CSS when loading is true OR when parent has .loading class -->
+    <div class="loading-indicator" [class.visible]="loading">
+      <div class="skeleton-row" *ngFor="let _ of skeletonRows; let rowIndex = index" [style.height.px]="rowHeight">
+        <!-- Select Checkbox -->
+        <div class="skeleton-cell cell cell-select" *ngIf="options.selectionMode === 'multiple'">
+          <span class="skel-dot"></span>
+        </div>
+        <!-- Row Number -->
+        <div class="skeleton-cell cell cell-number" *ngIf="options.showRowNumbers">
+          <span class="skel-line short"></span>
+        </div>
+        <!-- Pinned Left Cells -->
+        <div
+          *ngFor="let column of pinnedLeftColumns; trackBy: trackByColumn"
+          class="skeleton-cell cell cell-pinned-left"
+          [ngClass]="getSkeletonCellClasses(column)"
+          [style.width.px]="column.width || 100"
+          [style.min-width.px]="column.minWidth || 50"
+          [style.max-width.px]="column.maxWidth || 1000"
+          [style.text-align]="column.align || 'left'">
+          <ng-container [ngSwitch]="getSkeletonType(column)">
+            <span *ngSwitchCase="'image'" class="skel-asset"></span>
+            <span *ngSwitchCase="'boolean'" class="skel-dot"></span>
+            <span *ngSwitchCase="'status'" class="skel-pill"></span>
+            <span *ngSwitchCase="'tags'" class="skel-tags">
+              <span class="skel-pill" *ngFor="let __ of skeletonTags"></span>
+            </span>
+            <span *ngSwitchCase="'rating'" class="skel-rating"></span>
+            <span *ngSwitchCase="'number'" class="skel-line short align-right"></span>
+            <span *ngSwitchCase="'long-text'" class="skel-lines">
+              <span class="skel-line"></span>
+              <span class="skel-line short"></span>
+            </span>
+            <span *ngSwitchDefault class="skel-line"></span>
+          </ng-container>
+        </div>
+        <!-- Normal Cells -->
+        <div
+          *ngFor="let column of normalColumns; trackBy: trackByColumn"
+          class="skeleton-cell cell"
+          [ngClass]="getSkeletonCellClasses(column)"
+          [style.min-width.px]="column.minWidth || 50"
+          [style.max-width.px]="column.maxWidth || 1000"
+          [style.flex]="getColumnFlex(column)"
+          [style.text-align]="column.align || 'left'">
+          <ng-container [ngSwitch]="getSkeletonType(column)">
+            <span *ngSwitchCase="'image'" class="skel-asset"></span>
+            <span *ngSwitchCase="'boolean'" class="skel-dot"></span>
+            <span *ngSwitchCase="'status'" class="skel-pill"></span>
+            <span *ngSwitchCase="'tags'" class="skel-tags">
+              <span class="skel-pill" *ngFor="let __ of skeletonTags"></span>
+            </span>
+            <span *ngSwitchCase="'rating'" class="skel-rating"></span>
+            <span *ngSwitchCase="'number'" class="skel-line short align-right"></span>
+            <span *ngSwitchCase="'long-text'" class="skel-lines">
+              <span class="skel-line"></span>
+              <span class="skel-line short"></span>
+            </span>
+            <span *ngSwitchDefault class="skel-line"></span>
+          </ng-container>
+        </div>
+        <!-- Pinned Right Cells -->
+        <div
+          *ngFor="let column of pinnedRightColumns; trackBy: trackByColumn"
+          class="skeleton-cell cell cell-pinned-right"
+          [ngClass]="getSkeletonCellClasses(column)"
+          [style.width.px]="column.width || 100"
+          [style.min-width.px]="column.minWidth || 50"
+          [style.max-width.px]="column.maxWidth || 1000"
+          [style.text-align]="column.align || 'left'">
+          <ng-container [ngSwitch]="getSkeletonType(column)">
+            <span *ngSwitchCase="'image'" class="skel-asset"></span>
+            <span *ngSwitchCase="'boolean'" class="skel-dot"></span>
+            <span *ngSwitchCase="'status'" class="skel-pill"></span>
+            <span *ngSwitchCase="'tags'" class="skel-tags">
+              <span class="skel-pill" *ngFor="let __ of skeletonTags"></span>
+            </span>
+            <span *ngSwitchCase="'rating'" class="skel-rating"></span>
+            <span *ngSwitchCase="'number'" class="skel-line short align-right"></span>
+            <span *ngSwitchCase="'long-text'" class="skel-lines">
+              <span class="skel-line"></span>
+              <span class="skel-line short"></span>
+            </span>
+            <span *ngSwitchDefault class="skel-line"></span>
+          </ng-container>
+        </div>
+      </div>
     </div>
     
     <!-- Empty State -->
@@ -389,7 +469,9 @@
             <ng-container *ngTemplateOutlet="column.cellTemplate; context: { $implicit: $any(row), column: column, value: getFieldValue($any(row), column.field) }"></ng-container>
           </ng-container>
           <ng-template #defaultCell>
-            <span>{{ formatCellValue(getFieldValue($any(row), column.field), $any(row), column) }}</span>
+            <span [class.badge-neutral]="formatCellValue(getFieldValue($any(row), column.field), $any(row), column) === 'Object'">
+              {{ formatCellValue(getFieldValue($any(row), column.field), $any(row), column) }}
+            </span>
           </ng-template>
         </ng-template>
       </div>
@@ -422,7 +504,9 @@
             <ng-container *ngTemplateOutlet="column.cellTemplate; context: { $implicit: $any(row), column: column, value: getFieldValue($any(row), column.field) }"></ng-container>
           </ng-container>
           <ng-template #defaultCell>
-            <span>{{ formatCellValue(getFieldValue($any(row), column.field), $any(row), column) }}</span>
+            <span [class.badge-neutral]="formatCellValue(getFieldValue($any(row), column.field), $any(row), column) === 'Object'">
+              {{ formatCellValue(getFieldValue($any(row), column.field), $any(row), column) }}
+            </span>
           </ng-template>
         </ng-template>
       </div>
@@ -455,7 +539,9 @@
             <ng-container *ngTemplateOutlet="column.cellTemplate; context: { $implicit: $any(row), column: column, value: getFieldValue($any(row), column.field) }"></ng-container>
           </ng-container>
           <ng-template #defaultCell>
-            <span>{{ formatCellValue(getFieldValue($any(row), column.field), $any(row), column) }}</span>
+            <span [class.badge-neutral]="formatCellValue(getFieldValue($any(row), column.field), $any(row), column) === 'Object'">
+              {{ formatCellValue(getFieldValue($any(row), column.field), $any(row), column) }}
+            </span>
           </ng-template>
         </ng-template>
       </div>

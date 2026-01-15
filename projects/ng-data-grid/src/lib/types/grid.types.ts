@@ -89,8 +89,6 @@ export interface GridOptions<T = any> {
   persistSettings?: boolean;
   /** Settings persistence key */
   settingsKey?: string;
-  /** Whether to enable RTL */
-  rtl?: boolean;
   /** Custom CSS class */
   cssClass?: string;
   /** Whether to show loading indicator */
@@ -103,24 +101,14 @@ export interface GridOptions<T = any> {
   rowTemplate?: any;
   /** Whether to enable keyboard navigation */
   keyboardNavigation?: boolean;
-  /** Whether to enable row drag and drop */
-  rowDragDrop?: boolean;
-  /** Whether to show column chooser */
-  showColumnChooser?: boolean;
   /** Whether to enable export */
   enableExport?: boolean;
   /** Export formats */
   exportFormats?: ('csv' | 'excel' | 'pdf')[];
   /** Whether to show row numbers */
   showRowNumbers?: boolean;
-  /** Whether to enable row detail panel */
-  rowDetail?: boolean;
-  /** Row detail template */
-  rowDetailTemplate?: any;
   /** Frozen header while scrolling */
   frozenHeader?: boolean;
-  /** Custom theme */
-  theme?: 'light' | 'dark' | 'auto';
 }
 
 /**
@@ -141,9 +129,8 @@ export interface GridEvents<T = any> {
   dataStateChange?: (event: DataStateChangeEvent) => void;
   columnReorder?: (event: ColumnReorderEvent) => void;
   columnResize?: (event: ColumnResizeEvent) => void;
-  rowDragStart?: (event: RowDragEvent<T>) => void;
-  rowDragEnd?: (event: RowDragEvent<T>) => void;
   groupToggle?: (event: GroupToggleEvent<T>) => void;
+  exportRequest?: (event: ExportRequestEvent) => void;
 }
 
 /**
@@ -242,15 +229,6 @@ export interface ColumnResizeEvent {
 }
 
 /**
- * Row drag event
- */
-export interface RowDragEvent<T> {
-  row: T;
-  rowIndex: number;
-  event: DragEvent;
-}
-
-/**
  * Group toggle event
  */
 export interface GroupToggleEvent<T> {
@@ -267,6 +245,15 @@ export interface LoadMoreEvent {
   groupValue: any;
   parentKey: string;
   level?: number;
+}
+
+export interface ExportRequestEvent {
+  format: 'csv' | 'excel' | 'pdf';
+  sort: SortConfig[];
+  filters: FilterCondition[];
+  groups: GroupConfig[];
+  columns: Array<{ field: string; title?: string }>;
+  search?: string;
 }
 
 

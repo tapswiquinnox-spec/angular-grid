@@ -11,11 +11,7 @@ import {
   ChangeDetectorRef,
   ViewChild,
   ElementRef,
-  TemplateRef,
-  ViewContainerRef,
-  AfterViewInit,
-  QueryList,
-  ViewChildren
+  AfterViewInit
 } from '@angular/core';
 import { Subject, combineLatest, of } from 'rxjs';
 import { debounceTime, switchMap, takeUntil, map, startWith } from 'rxjs/operators';
@@ -40,18 +36,17 @@ import {
   DataStateChangeEvent,
   ColumnReorderEvent,
   ColumnResizeEvent,
-  RowDragEvent,
   GroupToggleEvent,
+  ExportRequestEvent,
   GridRow,
   GroupRow,
   isGroupRow,
   AggregateResult
 } from '../types';
-import { SortDirection, FilterOperator } from '../types/column.types';
+import { SortDirection, FilterOperator, ColumnType } from '../types/column.types';
 import { DataService } from '../services/data.service';
 import { GridStateService } from '../services/grid-state.service';
 import { PersistenceService } from '../services/persistence.service';
-import { ExportService } from '../services/export.service';
 
 /**
  * Main DataGrid Component
@@ -61,7 +56,7 @@ import { ExportService } from '../services/export.service';
   templateUrl: './data-grid.component.html',
   styleUrls: ['./data-grid.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [DataService, GridStateService, PersistenceService, ExportService]
+  providers: [DataService, GridStateService, PersistenceService]
 })
 export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewInit, OnDestroy {
   @Input() options!: GridOptions<T>;
@@ -81,10 +76,9 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   @Output() dataStateChange = new EventEmitter<DataStateChangeEvent>();
   @Output() columnReorder = new EventEmitter<ColumnReorderEvent>();
   @Output() columnResize = new EventEmitter<ColumnResizeEvent>();
-  @Output() rowDragStart = new EventEmitter<RowDragEvent<T>>();
-  @Output() rowDragEnd = new EventEmitter<RowDragEvent<T>>();
   @Output() groupToggle = new EventEmitter<GroupToggleEvent<T>>();
   @Output() loadMore = new EventEmitter<{ groupKey: string; groupField: string; groupValue: any; parentKey: string }>();
+  @Output() exportRequest = new EventEmitter<ExportRequestEvent>();
 
   @ViewChild('gridContainer', { static: false }) gridContainer!: ElementRef<HTMLElement>;
   @ViewChild('headerRow', { static: false }) headerRow!: ElementRef<HTMLElement>;
@@ -93,7 +87,7 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   // Data
   data: GridRow<T>[] = [];
   total = 0;
-  loading = false;
+  loading = true;
   expandedGroups = new Set<string>();
   footerAggregates: AggregateResult[] = [];
   
@@ -113,6 +107,14 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   editingRow: T | null = null;
   editingCell: { row: T; field: string } | null = null;
   expandedRows = new Set<any>();
+  readonly skeletonTags = Array.from({ length: 3 }, (_, i) => i);
+  
+  /**
+   * Get skeleton rows array based on current page size
+   */
+  get skeletonRows(): number[] {
+    return Array.from({ length: this.pageSize || 10 }, (_, i) => i);
+  }
   
   // Virtualization
   virtualScrollStart = 0;
@@ -133,7 +135,6 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   
   // Drag & Drop
   draggedColumn: ColumnDef<T> | null = null;
-  draggedRow: T | null = null;
   dragOverIndex = -1;
   draggedGroupIndex = -1;
   showGroupPanel = false;
@@ -146,12 +147,12 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   private destroy$ = new Subject<void>();
   private dataParams$ = new Subject<DataSourceParams>();
   isObservableDataSource = false; // Made public for template access
+  private resizeListener?: () => void;
 
   constructor(
     private dataService: DataService<T>,
     private stateService: GridStateService<T>,
     private persistenceService: PersistenceService,
-    private exportService: ExportService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -212,11 +213,141 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
     if (this.options.virtualScroll || this.options.infiniteScroll || this.getCurrentGroups().length > 0) {
       this.setupVirtualScroll();
     }
+    
+    // Align header and body columns by accounting for scrollbar width
+    this.alignHeaderWithBody();
+    
+    // Re-align when window resizes or data changes
+    if (typeof window !== 'undefined') {
+      this.resizeListener = () => this.alignHeaderWithBody();
+      window.addEventListener('resize', this.resizeListener);
+    }
+  }
+  
+  /**
+   * Align header columns with body columns by accounting for scrollbar width
+   */
+  private alignHeaderWithBody(): void {
+    if (!this.headerRow?.nativeElement || !this.bodyContainer?.nativeElement) {
+      return;
+    }
+    
+    // Use requestAnimationFrame to ensure DOM is fully rendered
+    requestAnimationFrame(() => {
+      if (!this.headerRow?.nativeElement || !this.bodyContainer?.nativeElement) {
+        return;
+      }
+      
+      const body = this.bodyContainer.nativeElement;
+      const headerRowEl = this.headerRow.nativeElement;
+      
+      // Get the actual content width of the body (excluding scrollbar)
+      const bodyContentWidth = body.clientWidth;
+      
+      // Get the header row's parent (grid-header) width
+      const headerParent = headerRowEl.parentElement;
+      const headerParentWidth = headerParent?.clientWidth || 0;
+      
+      // Calculate scrollbar width
+      const scrollbarWidth = body.offsetWidth - body.clientWidth;
+      
+      // Set header row width to match body's content width exactly
+      // This ensures columns align perfectly
+      if (scrollbarWidth > 0) {
+        // When scrollbar is present, header should be narrower by scrollbar width
+        headerRowEl.style.width = `${bodyContentWidth}px`;
+        headerRowEl.style.maxWidth = `${bodyContentWidth}px`;
+        headerRowEl.style.minWidth = `${bodyContentWidth}px`;
+      } else {
+        // When no scrollbar, both should be 100% of their container
+        headerRowEl.style.width = `${headerParentWidth}px`;
+        headerRowEl.style.maxWidth = `${headerParentWidth}px`;
+        headerRowEl.style.minWidth = `${headerParentWidth}px`;
+      }
+      
+      // Also ensure all cells in header and first row have matching widths
+      this.syncColumnWidths();
+      
+      this.cdr.markForCheck();
+    });
+  }
+  
+  /**
+   * Sync individual column widths between header and body cells
+   * This ensures each column has the same width in both header and body
+   */
+  private syncColumnWidths(): void {
+    if (!this.headerRow?.nativeElement || !this.bodyContainer?.nativeElement) {
+      return;
+    }
+    
+    const headerCells = Array.from(this.headerRow.nativeElement.querySelectorAll('.header-cell')) as HTMLElement[];
+    const firstRow = this.bodyContainer.nativeElement.querySelector('.grid-row:not(.group-row):not(.load-more-row)') as HTMLElement;
+    
+    if (!firstRow || headerCells.length === 0) {
+      return;
+    }
+    
+    const bodyCells = Array.from(firstRow.querySelectorAll('.cell')) as HTMLElement[];
+    
+    // Sync widths for each column pair
+    const minLength = Math.min(headerCells.length, bodyCells.length);
+    for (let i = 0; i < minLength; i++) {
+      const headerCell = headerCells[i];
+      const bodyCell = bodyCells[i];
+      
+      if (headerCell && bodyCell) {
+        // Get computed widths (including padding and borders)
+        const headerRect = headerCell.getBoundingClientRect();
+        const bodyRect = bodyCell.getBoundingClientRect();
+        
+        const headerWidth = headerRect.width;
+        const bodyWidth = bodyRect.width;
+        
+        // Only sync if there's a significant difference (more than 2px to account for rounding)
+        if (Math.abs(headerWidth - bodyWidth) > 2) {
+          // Use the larger width to ensure content fits
+          const targetWidth = Math.max(headerWidth, bodyWidth);
+          
+          // Get current flex values
+          const headerFlex = window.getComputedStyle(headerCell).flex;
+          const bodyFlex = window.getComputedStyle(bodyCell).flex;
+          
+          // Only set explicit width if the cell doesn't have a fixed width already
+          // (pinned columns and columns with explicit width should keep their width)
+          const headerHasFixedWidth = headerCell.style.width || headerCell.getAttribute('style')?.includes('width');
+          const bodyHasFixedWidth = bodyCell.style.width || bodyCell.getAttribute('style')?.includes('width');
+          
+          if (!headerHasFixedWidth && !bodyHasFixedWidth) {
+            // For flex columns, ensure both use the same flex basis
+            // This maintains flex behavior while ensuring alignment
+            const computedFlex = window.getComputedStyle(headerCell).flexBasis || 'auto';
+            if (computedFlex !== 'auto') {
+              bodyCell.style.flexBasis = computedFlex;
+            }
+          } else if (headerHasFixedWidth && !bodyHasFixedWidth) {
+            // Header has fixed width, apply to body
+            bodyCell.style.width = headerCell.style.width || `${headerWidth}px`;
+            bodyCell.style.flex = '0 0 auto';
+          } else if (!headerHasFixedWidth && bodyHasFixedWidth) {
+            // Body has fixed width, apply to header
+            headerCell.style.width = bodyCell.style.width || `${bodyWidth}px`;
+            headerCell.style.flex = '0 0 auto';
+          }
+        }
+      }
+    }
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    
+    // Remove resize listener
+    if (this.resizeListener && typeof window !== 'undefined') {
+      window.removeEventListener('resize', this.resizeListener);
+    }
+    
     this.savePersistedSettings();
     this.isInitialized = false;
   }
@@ -390,6 +521,12 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
       takeUntil(this.destroy$)
     ).subscribe({
       next: ({ result, params, isInfiniteScroll }) => {
+        // Align header with body after data loads
+        setTimeout(() => {
+          this.alignHeaderWithBody();
+          // Also align after a short delay to ensure rendering is complete
+          setTimeout(() => this.alignHeaderWithBody(), 50);
+        }, 0);
         // Always replace data (no infinite scroll)
         this.accumulatedData = result.data;
         this.currentLoadedPage = params.page || 1;
@@ -832,6 +969,53 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
   getColumnFlex(column: ColumnDef<T>): string {
     const basis = column.width || column.minWidth || 120;
     return `1 1 ${basis}px`;
+  }
+
+  getSkeletonType(column: ColumnDef<T>): 'text' | 'long-text' | 'number' | 'status' | 'tags' | 'rating' | 'image' | 'boolean' | 'date' {
+    const field = (column.field || '').toLowerCase();
+    const css = (column.cssClass || '').toLowerCase();
+    const type = column.type;
+
+    const isImage = /image|img|thumbnail|avatar|photo|logo|picture/.test(field) || /image|avatar|thumbnail/.test(css);
+    if (isImage) return 'image';
+
+    const isRating = /rating|stars|score|review/.test(field) || /rating|stars/.test(css);
+    if (isRating) return 'rating';
+
+    const isStatus = /status|state|stage/.test(field) || /status|pill|badge/.test(css);
+    if (isStatus) return 'status';
+
+    const isTags = /tags|tag|labels|categories|category|chips/.test(field) || /tags|chips/.test(css);
+    if (isTags) return 'tags';
+
+    const isBoolean = type === ColumnType.Boolean || /active|enabled|available|is_|has_|flag|verified|visible/.test(field);
+    if (isBoolean) return 'boolean';
+
+    if (type === ColumnType.Number) return 'number';
+    if (type === ColumnType.Date) return 'date';
+
+    const isLongText = /description|details|summary|comment|notes|address|message|content/.test(field);
+    const width = column.width || column.maxWidth || column.minWidth || 0;
+    if (isLongText || width >= 240) return 'long-text';
+
+    return 'text';
+  }
+
+  getSkeletonCellClasses(column: ColumnDef<T>): Record<string, boolean> {
+    const type = this.getSkeletonType(column);
+    const alignRight = column.align === 'right' || type === 'number';
+    const alignCenter = column.align === 'center' || type === 'boolean';
+    return {
+      'is-number': type === 'number',
+      'is-long-text': type === 'long-text',
+      'is-status': type === 'status',
+      'is-tags': type === 'tags',
+      'is-rating': type === 'rating',
+      'is-image': type === 'image',
+      'is-boolean': type === 'boolean',
+      'align-right': alignRight,
+      'align-center': alignCenter
+    };
   }
 
   /**
@@ -1404,11 +1588,13 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
     }
     
     this.stateService.setPage(page);
+    const currentPageSize = this.stateService.getPageSize() || this.pageSize;
+    this.pageSize = currentPageSize;
     const pageEvent: PageChangeEvent = {
       page,
-      pageSize: this.pageSize,
-      skip: (page - 1) * this.pageSize,
-      take: this.pageSize
+      pageSize: currentPageSize,
+      skip: (page - 1) * currentPageSize,
+      take: currentPageSize
     };
     this.pageChange.emit(pageEvent);
     if (this.events?.pageChange) {
@@ -1426,6 +1612,7 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
       return;
     }
     
+    this.pageSize = pageSize;
     this.stateService.setPageSize(pageSize);
     this.onPageChange(1);
   }
@@ -1564,27 +1751,21 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
    */
   exportData(format: 'csv' | 'excel' | 'pdf'): void {
     const columns = this.visibleColumns;
-    const selectedRows = this.stateService.getSelectedRows();
-    
-    // Export only selected rows
-    if (selectedRows.length === 0) {
-      console.warn('No rows selected. Please select rows to export.');
-      return;
-    }
-    
-    const dataRows = selectedRows;
-    const filename = `export-selected-${selectedRows.length}-rows.${format === 'excel' ? 'xlsx' : format}`;
-    
-    switch (format) {
-      case 'csv':
-        this.exportService.exportToCSV(dataRows, columns, filename);
-        break;
-      case 'excel':
-        this.exportService.exportToExcel(dataRows, columns, filename);
-        break;
-      case 'pdf':
-        this.exportService.exportToPDF(dataRows, columns, filename);
-        break;
+    const sort = this.stateService.getSort().filter(s => s.direction !== SortDirection.None);
+    const filters = this.stateService.getFilters();
+    const groups = this.stateService.getGroups();
+    const exportEvent: ExportRequestEvent = {
+      format,
+      sort,
+      filters,
+      groups,
+      columns: columns.map(col => ({ field: col.field, title: col.title })),
+      search: this.searchTerm
+    };
+
+    this.exportRequest.emit(exportEvent);
+    if (this.events?.exportRequest) {
+      this.events.exportRequest(exportEvent);
     }
   }
 
@@ -1602,7 +1783,23 @@ export class DataGridComponent<T = any> implements OnInit, OnChanges, AfterViewI
     if (column.valueFormatter) {
       return column.valueFormatter(value, row, column);
     }
-    return String(value ?? '');
+    
+    // Handle null/undefined
+    if (value == null) {
+      return '';
+    }
+    
+    // Handle objects - show neutral badge text instead of [object Object]
+    if (typeof value === 'object' && !Array.isArray(value) && value.constructor === Object) {
+      return 'Object';
+    }
+    
+    // Handle arrays
+    if (Array.isArray(value)) {
+      return `[${value.length} items]`;
+    }
+    
+    return String(value);
   }
 
   /**
