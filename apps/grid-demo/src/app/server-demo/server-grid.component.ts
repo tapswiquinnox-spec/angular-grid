@@ -74,6 +74,7 @@ export class ServerGridComponent implements OnInit, OnDestroy {
   private groupMetadataCache = new Map<string, { metadata: Array<{ value: any; key: string; count: number }>; total: number }>();
   private nestedGroupMetadataCache = new Map<string, { metadata: Array<{ value: any; key: string; count: number }>; total: number }>();
   private groupChildrenPagination = new Map<string, { page: number; pageSize: number; total: number; hasMore: boolean }>();
+  private pendingNestedGroupRequests = new Set<string>(); // Track pending nested group API requests
 
   private readonly LOAD_MORE_ROW_TYPE = '__LOAD_MORE_ROW__';
   private readonly destroy$ = new Subject<void>();
@@ -253,13 +254,25 @@ export class ServerGridComponent implements OnInit, OnDestroy {
         // If there are more group levels, use nested-groups API
         if (this.currentGroups && this.currentGroups.length > 1) {
           const nextGroupField = this.currentGroups[1].field;
+          // Generate cache key for nested groups
+          const nestedMetadataCacheKey = `nested-${groupKey}-${nextGroupField}-groups${JSON.stringify(this.currentGroups)}-f${JSON.stringify(this.currentFilters)}-search${this.currentSearch}-sort${JSON.stringify(this.currentSort)}`;
+          
+          // Check if already pending
+          if (this.pendingNestedGroupRequests.has(nestedMetadataCacheKey)) {
+            return; // Already requested, don't make duplicate call
+          }
+          
           this.isLoading = true;
           this.emitPageResult([], 0, this.currentPage, this.pageSize, true);
+          
+          // Mark as pending
+          this.pendingNestedGroupRequests.add(nestedMetadataCacheKey);
           
           const parentFilters = this.extractParentFiltersFromKey(groupKey, groupLevel);
           this.requestNestedGroups({
             parentFilters,
             childGroupField: nextGroupField,
+            cacheKey: nestedMetadataCacheKey, // Pass the cache key
             sort: this.currentSort,
             filters: this.currentFilters,
             search: this.currentSearch
@@ -282,9 +295,21 @@ export class ServerGridComponent implements OnInit, OnDestroy {
           
           const nextGroupField = this.currentGroups[groupLevel + 1].field;
           const parentFilters = this.extractParentFiltersFromKey(groupKey, groupLevel);
+          // Generate cache key for nested groups
+          const nestedMetadataCacheKey = `nested-${groupKey}-${nextGroupField}-groups${JSON.stringify(this.currentGroups)}-f${JSON.stringify(this.currentFilters)}-search${this.currentSearch}-sort${JSON.stringify(this.currentSort)}`;
+          
+          // Check if already pending
+          if (this.pendingNestedGroupRequests.has(nestedMetadataCacheKey)) {
+            return; // Already requested, don't make duplicate call
+          }
+          
+          // Mark as pending
+          this.pendingNestedGroupRequests.add(nestedMetadataCacheKey);
+          
           this.requestNestedGroups({
             parentFilters,
             childGroupField: nextGroupField,
+            cacheKey: nestedMetadataCacheKey, // Pass the cache key
             sort: this.currentSort,
             filters: this.currentFilters,
             search: this.currentSearch
@@ -442,6 +467,8 @@ export class ServerGridComponent implements OnInit, OnDestroy {
         const { cacheKey, metadata, total } = resp.data || {};
         if (!cacheKey) return;
         this.nestedGroupMetadataCache.set(cacheKey, { metadata: metadata || [], total: total || 0 });
+        // Remove from pending requests
+        this.pendingNestedGroupRequests.delete(cacheKey);
         this.rebuildGroupRowsWithChildren();
         this.isLoading = false;
         return;
@@ -521,16 +548,20 @@ export class ServerGridComponent implements OnInit, OnDestroy {
               nextGroupField
             );
             groupRows.push(...nestedRows);
-          } else {
-            // Fetch nested groups from API
+          } else if (!this.pendingNestedGroupRequests.has(nestedMetadataCacheKey)) {
+            // Fetch nested groups from API only if not already pending
             pendingChildrenFetch = true;
             this.isLoading = true;
             this.emitPageResult([], 0, this.currentPage, this.pageSize, true);
+            
+            // Mark as pending
+            this.pendingNestedGroupRequests.add(nestedMetadataCacheKey);
             
             const parentFilters = this.extractParentFiltersFromKey(meta.key, 0);
             this.requestNestedGroups({
               parentFilters,
               childGroupField: nextGroupField,
+              cacheKey: nestedMetadataCacheKey, // Pass the cache key
               sort: this.currentSort,
               filters: this.currentFilters,
               search: this.currentSearch
@@ -708,15 +739,19 @@ export class ServerGridComponent implements OnInit, OnDestroy {
               nextGroupField
             );
             nestedRows.push(...deeperRows);
-          } else {
-            // Fetch nested groups for next level
+          } else if (!this.pendingNestedGroupRequests.has(nestedMetadataCacheKey)) {
+            // Fetch nested groups for next level only if not already pending
             this.isLoading = true;
             this.emitPageResult([], 0, this.currentPage, this.pageSize, true);
+            
+            // Mark as pending
+            this.pendingNestedGroupRequests.add(nestedMetadataCacheKey);
             
             const parentFilters = this.extractParentFiltersFromKey(fullKey, nextLevel);
             this.requestNestedGroups({
               parentFilters,
               childGroupField: nextGroupField,
+              cacheKey: nestedMetadataCacheKey, // Pass the cache key
               sort: this.currentSort,
               filters: this.currentFilters,
               search: this.currentSearch
@@ -811,6 +846,7 @@ export class ServerGridComponent implements OnInit, OnDestroy {
       this.groupMetadataCache.clear();
       this.groupChildrenCache.clear();
       this.nestedGroupMetadataCache.clear();
+      this.pendingNestedGroupRequests.clear(); // Clear pending requests when caches are cleared
     }
   }
 

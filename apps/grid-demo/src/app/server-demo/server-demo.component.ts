@@ -89,7 +89,8 @@ export class ServerDemoComponent implements OnInit {
 
         this.http.get<any>(url).subscribe({
           next: (response) => {
-            const cacheKey = `nested-${r.childGroupField}-parents${JSON.stringify(r.parentFilters || [])}`;
+            // Use cacheKey from request if provided, otherwise generate a fallback
+            const cacheKey = r.cacheKey || `nested-${r.childGroupField}-parents${JSON.stringify(r.parentFilters || [])}`;
             this.apiResponsesSubject.next({
               requestId: req.requestId,
               eventType: 'nestedGroups',
