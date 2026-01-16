@@ -1,4 +1,4 @@
-import { Component, EventEmitter, OnDestroy, OnInit, Output, TemplateRef, ViewChild, ChangeDetectorRef } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, OnInit, OnChanges, SimpleChanges, Output, Input, TemplateRef, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import {
   ColumnType,
@@ -40,12 +40,13 @@ import {
   templateUrl: './angular-data-grid-view.component.html',
   styleUrls: ['./angular-data-grid-view.component.css']
 })
-export class AngularDataGridViewComponent implements OnInit, OnDestroy {
+export class AngularDataGridViewComponent implements OnInit, OnChanges, OnDestroy {
   @ViewChild('statusTemplate', { static: true }) statusTemplate!: TemplateRef<any>;
   @ViewChild('ratingTemplate', { static: true }) ratingTemplate!: TemplateRef<any>;
   @ViewChild('payloadTemplate', { static: true }) payloadTemplate!: TemplateRef<any>;
   @ViewChild('dataGrid', { static: false }) dataGridRef!: any; // Reference to lib-data-grid component
   
+  @Input() initialData: { data: any[]; total: number } | null = null;
   @Output() apiRequest = new EventEmitter<AngularDataGridWidgetApiRequest>();
 
   // UI state
@@ -66,6 +67,7 @@ export class AngularDataGridViewComponent implements OnInit, OnDestroy {
   private currentFilters: FilterCondition[] = [];
   private currentGroups: GroupConfig[] = [];
   private currentSearch = '';
+  private initialDataProcessed = false; // Flag to prevent duplicate API calls
 
   private expandedGroups = new Set<string>();
   private groupChildrenCache = new Map<string, any[]>();
@@ -100,10 +102,38 @@ export class AngularDataGridViewComponent implements OnInit, OnDestroy {
       // Ignore localStorage errors
     }
     
-    // Initial load
-    this.isLoading = true;
-    this.emitPageResult([], 0, 1, this.pageSize, true);
-    this.requestDataPage({ page: 1, pageSize: this.pageSize, sort: [], filters: [], groups: [], search: '' });
+    // Process initial data if provided by parent component
+    // Parent component handles all initial loading
+    if (this.initialData) {
+      this.processInitialData();
+    }
+  }
+  
+  ngOnChanges(changes: SimpleChanges): void {
+    // Handle initial data input from parent widget component
+    // Parent component handles all initial loading, view component just processes the data
+    if (changes['initialData'] && this.initialData && !this.initialDataProcessed) {
+      this.processInitialData();
+    }
+  }
+  
+  /**
+   * Process initial data received from parent widget component
+   */
+  private processInitialData(): void {
+    if (!this.initialData || this.initialDataProcessed) return;
+    
+    this.initialDataProcessed = true; // Mark as processed to prevent duplicate calls
+    this.mockApiTotal = this.initialData.total;
+    this.serverData = this.parseDates(this.initialData.data || []);
+    
+    if (!this.gridOptions) {
+      this.setupServerSideGrid();
+      this.pageSize = 10;
+    }
+    
+    // No loading state needed here - parent handles initial loading
+    this.emitPageResult(this.serverData, this.mockApiTotal, 1, this.pageSize, false);
   }
 
   ngOnDestroy(): void {

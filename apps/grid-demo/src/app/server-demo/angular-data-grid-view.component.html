@@ -11,10 +11,6 @@
       (loadMore)="onLoadMore($event)"
       (exportRequest)="onExportRequest($event)">
   </lib-data-grid>
-  <div *ngIf="!gridOptions" class="loading-message">
-    <span class="loading-spinner" aria-hidden="true"></span>
-    <span class="loading-text">Loading data...</span>
-  </div>
   
   <!-- Loading Indicator - Shows in data area only -->
   <!-- The loading indicator is added via CSS pseudo-elements on grid-body -->

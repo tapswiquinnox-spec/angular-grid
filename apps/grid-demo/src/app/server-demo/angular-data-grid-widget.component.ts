@@ -25,10 +25,31 @@ export class AngularDataGridWidgetComponent implements OnInit {
   
   @ViewChild('angularDataGridWidget', { static: false }) angularDataGridWidget!: any; // Reference to angular-data-grid-view component
   
+  initialData: { data: any[]; total: number } | null = null;
+  isInitialDataLoaded = false; // Flag to track when initial data is loaded
+  isLoading = false; // Loading state for initial data fetch
+  
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
   
   ngOnInit(): void {
-    // Component is ready, child will request initial data
+    // Initial loading is handled by parent component
+    // Fetch first page API on component init
+    this.isLoading = true;
+    this.fetchMockApiPage(1, 10, [], [], [], '').subscribe({
+      next: (result) => {
+        this.initialData = result;
+        this.isLoading = false;
+        this.isInitialDataLoaded = true;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Failed to fetch initial data:', err);
+        this.initialData = { data: [], total: 0 };
+        this.isLoading = false;
+        this.isInitialDataLoaded = true; // Still set to true even on error to show the component
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   /**

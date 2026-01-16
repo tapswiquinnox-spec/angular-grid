@@ -274,10 +274,10 @@ app.get('/api/data/children', async (req, res) => {
     
     console.log('[SERVER] GROUP_CHILDREN API called:', { groupField, groupValue, sortBy, filters, search, skip: skipNum, limit: validLimit });
     
-    // Fetch all products from dummyjson.com
+    // Fetch all data from dummyjson.com
     const url = 'https://dummyjson.com/products?limit=100&skip=0';
     const response = await fetchFromDummyJson(url);
-    const allProducts = response.products || [];
+    const allData = response.products || [];
     
     // Parse filters if provided
     let parsedFilters = [];
@@ -467,10 +467,10 @@ app.get('/api/data/nested-groups', async (req, res) => {
       search 
     });
     
-    // Fetch all products from dummyjson.com
+    // Fetch all data from dummyjson.com
     const url = 'https://dummyjson.com/products?limit=100&skip=0';
     const response = await fetchFromDummyJson(url);
-    const allProducts = response.products || [];
+    const allData = response.products || [];
     
     // Parse filters if provided
     let parsedFilters = [];
@@ -930,7 +930,7 @@ app.post('/api/data/export', async (req, res) => {
     let parsedSort = sort || [];
     
     // Apply global search first (before filters)
-    let processedData = applyGlobalSearch(allProducts, search, []);
+    let processedData = applyGlobalSearch(allData, search, []);
     
     // Apply filters
     processedData = applyFilters(processedData, parsedFilters);

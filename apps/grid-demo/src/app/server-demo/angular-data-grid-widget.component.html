@@ -1,7 +1,15 @@
 <div class="demo-container">
   <div class="demo-grid">
+    <!-- Show loading indicator while fetching initial data -->
+    <div *ngIf="isLoading && !isInitialDataLoaded" class="loading-container">
+      <div class="loading-spinner">Loading data...</div>
+    </div>
+    
+    <!-- Show grid view once initial data is loaded -->
     <app-angular-data-grid-view
+      *ngIf="isInitialDataLoaded"
       #angularDataGridWidget
+      [initialData]="initialData"
       (apiRequest)="onApiRequest($event)">
     </app-angular-data-grid-view>
   </div>
