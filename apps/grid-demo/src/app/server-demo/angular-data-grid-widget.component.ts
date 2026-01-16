@@ -14,7 +14,7 @@ import {
 
 /**
  * Parent component that ONLY handles API calls.
- * All grid logic, state, and UI is handled by angular-data-grid-widget-grid child component.
+ * All grid logic, state, and UI is handled by angular-data-grid-view child component.
  */
 @Component({
   selector: 'app-angular-data-grid-widget',
@@ -23,7 +23,7 @@ import {
 })
 export class AngularDataGridWidgetComponent implements OnInit {
   
-  @ViewChild('angularDataGridWidget', { static: false }) angularDataGridWidget!: any; // Reference to angular-data-grid-widget-grid component
+  @ViewChild('angularDataGridWidget', { static: false }) angularDataGridWidget!: any; // Reference to angular-data-grid-view component
   
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
   

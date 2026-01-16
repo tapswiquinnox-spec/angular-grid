@@ -6,7 +6,7 @@ import { RouterModule } from '@angular/router';
 import { AppComponent } from './app.component';
 import { NgDataGridModule } from '../../../../projects/ng-data-grid/src/public-api';
 import { AngularDataGridWidgetComponent } from './server-demo/angular-data-grid-widget.component';
-import { AngularDataGridWidgetGridComponent } from './server-demo/angular-data-grid-widget-grid.component';
+import { AngularDataGridViewComponent } from './server-demo/angular-data-grid-view.component';
 import { PayloadPopupComponent } from './server-demo/payload-popup.component';
 import { AppRoutingModule } from './app-routing.module';
 
@@ -14,7 +14,7 @@ import { AppRoutingModule } from './app-routing.module';
   declarations: [
     AppComponent,
     AngularDataGridWidgetComponent,
-    AngularDataGridWidgetGridComponent,
+    AngularDataGridViewComponent,
     PayloadPopupComponent
   ],
   imports: [
