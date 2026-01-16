@@ -33,3 +33,20 @@
     <span class="rating-value">({{ value.toFixed(1) }})</span>
   </div>
 </ng-template>
+
+<ng-template #payloadTemplate let-row let-value="value">
+  <button 
+    class="payload-icon-btn" 
+    (click)="openPayloadPopup(value); $event.stopPropagation()"
+    title="View payload"
+    *ngIf="value">
+    <span class="payload-icon">📄</span>
+  </button>
+  <span *ngIf="!value" class="payload-empty">-</span>
+</ng-template>
+
+<app-payload-popup 
+  [payload]="currentPayload"
+  [visible]="showPayloadPopup"
+  (close)="closePayloadPopup()">
+</app-payload-popup>

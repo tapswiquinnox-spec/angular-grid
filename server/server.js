@@ -326,6 +326,77 @@ app.get('/api/products/children', async (req, res) => {
     // Apply sorting
     filteredData = applySorting(filteredData, parsedSort);
     
+    // Add payload field to each product (mix of JSON, XML, and text)
+    filteredData = filteredData.map((product, index) => {
+      const payloadTypes = ['json', 'xml', 'text'];
+      const payloadType = payloadTypes[index % payloadTypes.length];
+      
+      let payload;
+      if (payloadType === 'json') {
+        payload = JSON.stringify({
+          productId: product.id,
+          metadata: {
+            category: product.category,
+            brand: product.brand,
+            rating: product.rating,
+            stock: product.stock,
+            price: product.price,
+            discountPercentage: product.discountPercentage,
+            timestamp: new Date().toISOString(),
+            tags: product.tags || [],
+            images: product.images?.length || 0
+          },
+          analytics: {
+            views: Math.floor(Math.random() * 10000),
+            purchases: Math.floor(Math.random() * 1000),
+            revenue: (product.price * Math.floor(Math.random() * 100)).toFixed(2)
+          }
+        }, null, 2);
+      } else if (payloadType === 'xml') {
+        payload = `<?xml version="1.0" encoding="UTF-8"?>
+<product>
+  <id>${product.id}</id>
+  <title>${product.title}</title>
+  <description>${product.description}</description>
+  <category>${product.category}</category>
+  <brand>${product.brand || 'N/A'}</brand>
+  <price>${product.price}</price>
+  <discountPercentage>${product.discountPercentage}</discountPercentage>
+  <rating>${product.rating}</rating>
+  <stock>${product.stock}</stock>
+  <metadata>
+    <sku>${product.sku || 'N/A'}</sku>
+    <weight>${product.weight || 'N/A'}</weight>
+    <dimensions>${JSON.stringify(product.dimensions || {})}</dimensions>
+  </metadata>
+  <timestamp>${new Date().toISOString()}</timestamp>
+</product>`;
+      } else {
+        payload = `Product Details for ${product.title}
+========================================
+ID: ${product.id}
+Title: ${product.title}
+Description: ${product.description}
+Category: ${product.category}
+Brand: ${product.brand || 'N/A'}
+Price: $${product.price}
+Discount: ${product.discountPercentage}%
+Rating: ${product.rating} / 5.0
+Stock: ${product.stock} units
+SKU: ${product.sku || 'N/A'}
+Weight: ${product.weight || 'N/A'}
+Tags: ${(product.tags || []).join(', ')}
+Images: ${product.images?.length || 0} available
+Last Updated: ${new Date().toISOString()}
+========================================`;
+      }
+      
+      return {
+        ...product,
+        payload: payload
+      };
+    });
+    
     // Get total count before pagination
     const totalChildren = filteredData.length;
     
@@ -639,15 +710,96 @@ app.get('/api/products', async (req, res) => {
     // Apply sorting
     processedData = applySorting(processedData, parsedSort);
     
+    // Add payload field to each product (mix of JSON, XML, and text)
+    processedData = processedData.map((product, index) => {
+      const payloadTypes = ['json', 'xml', 'text'];
+      const payloadType = payloadTypes[index % payloadTypes.length];
+      
+      let payload;
+      if (payloadType === 'json') {
+        payload = JSON.stringify({
+          productId: product.id,
+          metadata: {
+            category: product.category,
+            brand: product.brand,
+            rating: product.rating,
+            stock: product.stock,
+            price: product.price,
+            discountPercentage: product.discountPercentage,
+            timestamp: new Date().toISOString(),
+            tags: product.tags || [],
+            images: product.images?.length || 0
+          },
+          analytics: {
+            views: Math.floor(Math.random() * 10000),
+            purchases: Math.floor(Math.random() * 1000),
+            revenue: (product.price * Math.floor(Math.random() * 100)).toFixed(2)
+          }
+        }, null, 2);
+      } else if (payloadType === 'xml') {
+        payload = `<?xml version="1.0" encoding="UTF-8"?>
+<product>
+  <id>${product.id}</id>
+  <title>${product.title}</title>
+  <description>${product.description}</description>
+  <category>${product.category}</category>
+  <brand>${product.brand || 'N/A'}</brand>
+  <price>${product.price}</price>
+  <discountPercentage>${product.discountPercentage}</discountPercentage>
+  <rating>${product.rating}</rating>
+  <stock>${product.stock}</stock>
+  <metadata>
+    <sku>${product.sku || 'N/A'}</sku>
+    <weight>${product.weight || 'N/A'}</weight>
+    <dimensions>${JSON.stringify(product.dimensions || {})}</dimensions>
+  </metadata>
+  <timestamp>${new Date().toISOString()}</timestamp>
+</product>`;
+      } else {
+        payload = `Product Details for ${product.title}
+========================================
+ID: ${product.id}
+Title: ${product.title}
+Description: ${product.description}
+Category: ${product.category}
+Brand: ${product.brand || 'N/A'}
+Price: $${product.price}
+Discount: ${product.discountPercentage}%
+Rating: ${product.rating} / 5.0
+Stock: ${product.stock} units
+SKU: ${product.sku || 'N/A'}
+Weight: ${product.weight || 'N/A'}
+Tags: ${(product.tags || []).join(', ')}
+Images: ${product.images?.length || 0} available
+Last Updated: ${new Date().toISOString()}
+========================================`;
+      }
+      
+      return {
+        ...product,
+        payload: payload
+      };
+    });
+    
     // Apply pagination
     const paginatedData = processedData.slice(skipNum, skipNum + validLimit);
+    
+    // Debug: Check if payload is present in first item
+    if (paginatedData.length > 0) {
+      console.log('[SERVER] First product has payload:', !!paginatedData[0].payload);
+      if (paginatedData[0].payload) {
+        console.log('[SERVER] Payload type:', typeof paginatedData[0].payload);
+        console.log('[SERVER] Payload preview:', paginatedData[0].payload.substring(0, 100));
+      }
+    }
     
     console.log('[SERVER] PRODUCTS API response:', {
       totalProducts: allProducts.length,
       afterSearchAndFilters: total,
       returnedProducts: paginatedData.length,
       skip: skipNum,
-      limit: validLimit
+      limit: validLimit,
+      hasPayload: paginatedData.length > 0 && !!paginatedData[0].payload
     });
     
     // Return paginated data with total count
@@ -789,6 +941,77 @@ app.post('/api/products/export', async (req, res) => {
     
     // Apply sorting
     processedData = applySorting(processedData, parsedSort);
+    
+    // Add payload field to each product (mix of JSON, XML, and text)
+    processedData = processedData.map((product, index) => {
+      const payloadTypes = ['json', 'xml', 'text'];
+      const payloadType = payloadTypes[index % payloadTypes.length];
+      
+      let payload;
+      if (payloadType === 'json') {
+        payload = JSON.stringify({
+          productId: product.id,
+          metadata: {
+            category: product.category,
+            brand: product.brand,
+            rating: product.rating,
+            stock: product.stock,
+            price: product.price,
+            discountPercentage: product.discountPercentage,
+            timestamp: new Date().toISOString(),
+            tags: product.tags || [],
+            images: product.images?.length || 0
+          },
+          analytics: {
+            views: Math.floor(Math.random() * 10000),
+            purchases: Math.floor(Math.random() * 1000),
+            revenue: (product.price * Math.floor(Math.random() * 100)).toFixed(2)
+          }
+        }, null, 2);
+      } else if (payloadType === 'xml') {
+        payload = `<?xml version="1.0" encoding="UTF-8"?>
+<product>
+  <id>${product.id}</id>
+  <title>${product.title}</title>
+  <description>${product.description}</description>
+  <category>${product.category}</category>
+  <brand>${product.brand || 'N/A'}</brand>
+  <price>${product.price}</price>
+  <discountPercentage>${product.discountPercentage}</discountPercentage>
+  <rating>${product.rating}</rating>
+  <stock>${product.stock}</stock>
+  <metadata>
+    <sku>${product.sku || 'N/A'}</sku>
+    <weight>${product.weight || 'N/A'}</weight>
+    <dimensions>${JSON.stringify(product.dimensions || {})}</dimensions>
+  </metadata>
+  <timestamp>${new Date().toISOString()}</timestamp>
+</product>`;
+      } else {
+        payload = `Product Details for ${product.title}
+========================================
+ID: ${product.id}
+Title: ${product.title}
+Description: ${product.description}
+Category: ${product.category}
+Brand: ${product.brand || 'N/A'}
+Price: $${product.price}
+Discount: ${product.discountPercentage}%
+Rating: ${product.rating} / 5.0
+Stock: ${product.stock} units
+SKU: ${product.sku || 'N/A'}
+Weight: ${product.weight || 'N/A'}
+Tags: ${(product.tags || []).join(', ')}
+Images: ${product.images?.length || 0} available
+Last Updated: ${new Date().toISOString()}
+========================================`;
+      }
+      
+      return {
+        ...product,
+        payload: payload
+      };
+    });
     
     console.log('[SERVER] EXPORT response:', {
       totalProducts: allProducts.length,

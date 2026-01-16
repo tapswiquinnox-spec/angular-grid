@@ -7,13 +7,15 @@ import { AppComponent } from './app.component';
 import { NgDataGridModule } from '../../../../projects/ng-data-grid/src/public-api';
 import { ServerDemoComponent } from './server-demo/server-demo.component';
 import { ServerGridComponent } from './server-demo/server-grid.component';
+import { PayloadPopupComponent } from './server-demo/payload-popup.component';
 import { AppRoutingModule } from './app-routing.module';
 
 @NgModule({
   declarations: [
     AppComponent,
     ServerDemoComponent,
-    ServerGridComponent
+    ServerGridComponent,
+    PayloadPopupComponent
   ],
   imports: [
     BrowserModule,

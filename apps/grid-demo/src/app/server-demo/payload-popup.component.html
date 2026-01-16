@@ -1,0 +1,21 @@
+<div class="popup-backdrop" *ngIf="visible" (click)="onBackdropClick($event)">
+  <div class="popup-container" (click)="$event.stopPropagation()">
+    <div class="popup-header">
+      <h3>Payload Viewer</h3>
+      <div class="popup-actions">
+        <button class="btn-copy" (click)="copyToClipboard()" title="Copy to clipboard">
+          <span class="icon-copy">📋</span>
+        </button>
+        <button class="btn-close" (click)="onClose()" title="Close">
+          <span class="icon-close">✕</span>
+        </button>
+      </div>
+    </div>
+    <div class="popup-body">
+      <div class="payload-type-badge" [class]="'type-' + payloadType">
+        {{ payloadType.toUpperCase() }}
+      </div>
+      <pre class="payload-content" [class]="'format-' + payloadType"><code>{{ formattedPayload }}</code></pre>
+    </div>
+  </div>
+</div>

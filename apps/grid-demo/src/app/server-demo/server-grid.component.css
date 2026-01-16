@@ -141,3 +141,32 @@ lib-data-grid {
   color: #666;
   font-size: 9.6px;
 }
+
+.payload-icon-btn {
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.payload-icon-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  transform: scale(1.05);
+}
+
+.payload-icon {
+  display: inline-block;
+  line-height: 1;
+}
+
+.payload-empty {
+  color: #9ca3af;
+  font-style: italic;
+}

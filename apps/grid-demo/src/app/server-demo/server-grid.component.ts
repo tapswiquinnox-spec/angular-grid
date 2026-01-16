@@ -44,6 +44,7 @@ import {
 export class ServerGridComponent implements OnInit, OnDestroy {
   @ViewChild('statusTemplate', { static: true }) statusTemplate!: TemplateRef<any>;
   @ViewChild('ratingTemplate', { static: true }) ratingTemplate!: TemplateRef<any>;
+  @ViewChild('payloadTemplate', { static: true }) payloadTemplate!: TemplateRef<any>;
   @ViewChild('dataGrid', { static: false }) dataGridRef!: any; // Reference to lib-data-grid component
   
   @Input() apiResponses$!: Observable<ServerDemoApiResponse>;
@@ -52,6 +53,10 @@ export class ServerGridComponent implements OnInit, OnDestroy {
   // UI state
   isLoading = false;
   gridOptions: GridOptions<any> | null = null;
+  
+  // Payload popup state
+  showPayloadPopup = false;
+  currentPayload: any = null;
 
   // Data/state
   private serverData: any[] = [];
@@ -913,7 +918,17 @@ export class ServerGridComponent implements OnInit, OnDestroy {
         column.cellTemplate = this.ratingTemplate;
       }
       
-      if (index === 0 || field.toLowerCase().includes('id') || field.toLowerCase().includes('name') || field.toLowerCase().includes('code')) {
+      // Handle payload column - pin to right and use icon template
+      if (field === 'payload' || field === 'rawData' || field === 'data') {
+        column.cellTemplate = this.payloadTemplate;
+        column.width = 100;
+        column.sortable = false;
+        column.filterable = true;
+        column.align = 'center';
+        column.pinned = 'right';
+        column.title = 'Payload';
+      } else if (index === 0 || field.toLowerCase().includes('id') || field.toLowerCase().includes('name') || field.toLowerCase().includes('code')) {
+        // Pin important fields to left (but not payload)
         column.pinned = 'left';
       }
       
@@ -950,6 +965,16 @@ export class ServerGridComponent implements OnInit, OnDestroy {
     const lowerField = field.toLowerCase();
     return currencyFields.some(cf => lowerField.includes(cf)) || 
            (typeof value === 'number' && value > 0 && value < 10000 && value % 0.01 === 0);
+  }
+
+  openPayloadPopup(payload: any): void {
+    this.currentPayload = payload;
+    this.showPayloadPopup = true;
+  }
+
+  closePayloadPopup(): void {
+    this.showPayloadPopup = false;
+    this.currentPayload = null;
   }
 
   private detectRowKey(data: any[]): string | undefined {
