@@ -1,7 +1,7 @@
 <div class="demo-container">
   <div class="demo-grid">
     <app-server-grid
-      [apiResponses$]="apiResponses$"
+      #serverGrid
       (apiRequest)="onApiRequest($event)">
     </app-server-grid>
   </div>

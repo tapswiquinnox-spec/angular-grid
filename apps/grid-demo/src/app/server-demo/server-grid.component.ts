@@ -1,6 +1,5 @@
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, TemplateRef, ViewChild, ChangeDetectorRef } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, OnInit, Output, TemplateRef, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
 import {
   ColumnType,
   DataStateChangeEvent,
@@ -47,7 +46,6 @@ export class ServerGridComponent implements OnInit, OnDestroy {
   @ViewChild('payloadTemplate', { static: true }) payloadTemplate!: TemplateRef<any>;
   @ViewChild('dataGrid', { static: false }) dataGridRef!: any; // Reference to lib-data-grid component
   
-  @Input() apiResponses$!: Observable<ServerDemoApiResponse>;
   @Output() apiRequest = new EventEmitter<ServerDemoApiRequest>();
 
   // UI state
@@ -82,11 +80,6 @@ export class ServerGridComponent implements OnInit, OnDestroy {
   constructor(private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
-    // Handle parent API responses
-    this.apiResponses$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((resp: ServerDemoApiResponse) => this.handleApiResponse(resp));
-
     // Ensure initial page size is 10 (override any persisted settings)
     this.pageSize = 10;
     
@@ -116,6 +109,13 @@ export class ServerGridComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  /**
+   * Public method called by parent component when API response is received
+   */
+  onApiResponse(resp: ServerDemoApiResponse): void {
+    this.handleApiResponse(resp);
   }
 
   // -------------------------

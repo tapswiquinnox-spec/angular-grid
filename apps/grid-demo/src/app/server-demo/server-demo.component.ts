@@ -1,6 +1,6 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, Subject } from 'rxjs';
+import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import {
   ServerDemoApiRequest,
@@ -23,9 +23,7 @@ import {
 })
 export class ServerDemoComponent implements OnInit {
   
-  // Child -> Parent (single event) / Parent -> Child (single stream)
-  private readonly apiResponsesSubject = new Subject<ServerDemoApiResponse>();
-  apiResponses$ = this.apiResponsesSubject.asObservable();
+  @ViewChild('serverGrid', { static: false }) serverGrid!: any; // Reference to server-grid component
   
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
   
@@ -42,16 +40,16 @@ export class ServerDemoComponent implements OnInit {
       case 'productsPage': {
         const r = req.eventData as ProductsPageRequest;
         this.fetchMockApiPage(r.page, r.pageSize, r.sort || [], r.filters || [], r.groups || [], r.search || '').subscribe({
-          next: (result) => this.apiResponsesSubject.next({ requestId: req.requestId, eventType: 'productsPage', data: result }),
-          error: (err) => this.apiResponsesSubject.next({ requestId: req.requestId, eventType: 'productsPage', data: { data: [], total: 0, error: String(err) } })
+          next: (result) => this.serverGrid?.onApiResponse({ requestId: req.requestId, eventType: 'productsPage', data: result }),
+          error: (err) => this.serverGrid?.onApiResponse({ requestId: req.requestId, eventType: 'productsPage', data: { data: [], total: 0, error: String(err) } })
         });
         return;
       }
       case 'groupMetadata': {
         const r = req.eventData as GroupMetadataRequest;
         this.fetchGroupMetadataAPI(r.groupField, r.sort || [], r.filters || [], r.skip || 0, r.limit || 10, r.search || '').subscribe({
-          next: (response) => this.apiResponsesSubject.next({ requestId: req.requestId, eventType: 'groupMetadata', data: { request: r, response } }),
-          error: (err) => this.apiResponsesSubject.next({ requestId: req.requestId, eventType: 'groupMetadata', data: { request: r, response: { groups: [], total: 0 }, error: String(err) } })
+          next: (response) => this.serverGrid?.onApiResponse({ requestId: req.requestId, eventType: 'groupMetadata', data: { request: r, response } }),
+          error: (err) => this.serverGrid?.onApiResponse({ requestId: req.requestId, eventType: 'groupMetadata', data: { request: r, response: { groups: [], total: 0 }, error: String(err) } })
         });
         return;
       }
@@ -66,13 +64,13 @@ export class ServerDemoComponent implements OnInit {
             const page = Math.floor(skip / limit) + 1;
             const hasMore = skip + limit < total;
             // Return request data so child can build the correct cache key
-            this.apiResponsesSubject.next({
+            this.serverGrid?.onApiResponse({
               requestId: req.requestId,
               eventType: 'groupChildren',
               data: { request: r, children, total, hasMore, page, pageSize: limit }
             });
           },
-          error: (err) => this.apiResponsesSubject.next({ requestId: req.requestId, eventType: 'groupChildren', data: { error: String(err) } })
+          error: (err) => this.serverGrid?.onApiResponse({ requestId: req.requestId, eventType: 'groupChildren', data: { error: String(err) } })
         });
         return;
       }
@@ -91,13 +89,13 @@ export class ServerDemoComponent implements OnInit {
           next: (response) => {
             // Use cacheKey from request if provided, otherwise generate a fallback
             const cacheKey = r.cacheKey || `nested-${r.childGroupField}-parents${JSON.stringify(r.parentFilters || [])}`;
-            this.apiResponsesSubject.next({
+            this.serverGrid?.onApiResponse({
               requestId: req.requestId,
               eventType: 'nestedGroups',
               data: { cacheKey, metadata: response.groups || [], total: response.total || 0 }
             });
           },
-          error: (err) => this.apiResponsesSubject.next({ requestId: req.requestId, eventType: 'nestedGroups', data: { error: String(err) } })
+          error: (err) => this.serverGrid?.onApiResponse({ requestId: req.requestId, eventType: 'nestedGroups', data: { error: String(err) } })
         });
         return;
       }
