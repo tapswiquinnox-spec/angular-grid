@@ -115,9 +115,9 @@ function applySorting(data, sort) {
   });
 }
 
-// Endpoint: GET /api/products/groups
+// Endpoint: GET /api/data/groups
 // Returns only unique group values and their counts (with pagination)
-app.get('/api/products/groups', async (req, res) => {
+app.get('/api/data/groups', async (req, res) => {
   try {
     // Add 3 second delay for testing loading indicator
     await delay(3000);
@@ -137,10 +137,10 @@ app.get('/api/products/groups', async (req, res) => {
     
     console.log('[SERVER] GROUP_METADATA API called:', { groupField, sortBy, filters, skip: skipNum, limit: validLimit, search, originalLimit: limit });
     
-    // Fetch all products from dummyjson.com (limit 100 for demo)
+    // Fetch all data from dummyjson.com (limit 100 for demo)
     const url = 'https://dummyjson.com/products?limit=100&skip=0';
     const response = await fetchFromDummyJson(url);
-    const allProducts = response.products || [];
+    const allData = response.products || [];
     
     // Parse filters if provided
     let parsedFilters = [];
@@ -173,7 +173,7 @@ app.get('/api/products/groups', async (req, res) => {
     }
     
     // Apply global search first (before filters)
-    let filteredData = applyGlobalSearch(allProducts, search, parsedSearchFields);
+    let filteredData = applyGlobalSearch(allData, search, parsedSearchFields);
     
     // Apply filters
     filteredData = applyFilters(filteredData, parsedFilters);
@@ -221,8 +221,8 @@ app.get('/api/products/groups', async (req, res) => {
     const paginatedMetadata = metadata.slice(skipNum, skipNum + validLimit);
     
     console.log('[SERVER] GROUP_METADATA response:', {
-      totalProducts: allProducts.length,
-      afterSearch: search ? applyGlobalSearch(allProducts, search, parsedSearchFields).length : allProducts.length,
+      totalItems: allData.length,
+      afterSearch: search ? applyGlobalSearch(allData, search, parsedSearchFields).length : allData.length,
       afterFilters: filteredData.length,
       totalGroups: totalGroups,
       returnedGroups: paginatedMetadata.length,
@@ -249,14 +249,14 @@ app.get('/api/products/groups', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('[SERVER] Error in /api/products/groups:', error);
+    console.error('[SERVER] Error in /api/data/groups:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Endpoint: GET /api/products/children
+// Endpoint: GET /api/data/children
 // Returns only children for a specific group value
-app.get('/api/products/children', async (req, res) => {
+app.get('/api/data/children', async (req, res) => {
   try {
     // Add 3 second delay for testing loading indicator
     await delay(3000);
@@ -310,7 +310,7 @@ app.get('/api/products/children', async (req, res) => {
     }
     
     // Apply global search first (before filters)
-    let processedData = applyGlobalSearch(allProducts, search, parsedSearchFields);
+    let processedData = applyGlobalSearch(allData, search, parsedSearchFields);
     
     // Add group filter
     const groupFilter = {
@@ -326,73 +326,73 @@ app.get('/api/products/children', async (req, res) => {
     // Apply sorting
     filteredData = applySorting(filteredData, parsedSort);
     
-    // Add payload field to each product (mix of JSON, XML, and text)
-    filteredData = filteredData.map((product, index) => {
+    // Add payload field to each item (mix of JSON, XML, and text)
+    filteredData = filteredData.map((item, index) => {
       const payloadTypes = ['json', 'xml', 'text'];
       const payloadType = payloadTypes[index % payloadTypes.length];
       
       let payload;
       if (payloadType === 'json') {
         payload = JSON.stringify({
-          productId: product.id,
+          itemId: item.id,
           metadata: {
-            category: product.category,
-            brand: product.brand,
-            rating: product.rating,
-            stock: product.stock,
-            price: product.price,
-            discountPercentage: product.discountPercentage,
+            category: item.category,
+            brand: item.brand,
+            rating: item.rating,
+            stock: item.stock,
+            price: item.price,
+            discountPercentage: item.discountPercentage,
             timestamp: new Date().toISOString(),
-            tags: product.tags || [],
-            images: product.images?.length || 0
+            tags: item.tags || [],
+            images: item.images?.length || 0
           },
           analytics: {
             views: Math.floor(Math.random() * 10000),
             purchases: Math.floor(Math.random() * 1000),
-            revenue: (product.price * Math.floor(Math.random() * 100)).toFixed(2)
+            revenue: (item.price * Math.floor(Math.random() * 100)).toFixed(2)
           }
         }, null, 2);
       } else if (payloadType === 'xml') {
         payload = `<?xml version="1.0" encoding="UTF-8"?>
-<product>
-  <id>${product.id}</id>
-  <title>${product.title}</title>
-  <description>${product.description}</description>
-  <category>${product.category}</category>
-  <brand>${product.brand || 'N/A'}</brand>
-  <price>${product.price}</price>
-  <discountPercentage>${product.discountPercentage}</discountPercentage>
-  <rating>${product.rating}</rating>
-  <stock>${product.stock}</stock>
+<item>
+  <id>${item.id}</id>
+  <title>${item.title}</title>
+  <description>${item.description}</description>
+  <category>${item.category}</category>
+  <brand>${item.brand || 'N/A'}</brand>
+  <price>${item.price}</price>
+  <discountPercentage>${item.discountPercentage}</discountPercentage>
+  <rating>${item.rating}</rating>
+  <stock>${item.stock}</stock>
   <metadata>
-    <sku>${product.sku || 'N/A'}</sku>
-    <weight>${product.weight || 'N/A'}</weight>
-    <dimensions>${JSON.stringify(product.dimensions || {})}</dimensions>
+    <sku>${item.sku || 'N/A'}</sku>
+    <weight>${item.weight || 'N/A'}</weight>
+    <dimensions>${JSON.stringify(item.dimensions || {})}</dimensions>
   </metadata>
   <timestamp>${new Date().toISOString()}</timestamp>
-</product>`;
+</item>`;
       } else {
-        payload = `Product Details for ${product.title}
+        payload = `Item Details for ${item.title}
 ========================================
-ID: ${product.id}
-Title: ${product.title}
-Description: ${product.description}
-Category: ${product.category}
-Brand: ${product.brand || 'N/A'}
-Price: $${product.price}
-Discount: ${product.discountPercentage}%
-Rating: ${product.rating} / 5.0
-Stock: ${product.stock} units
-SKU: ${product.sku || 'N/A'}
-Weight: ${product.weight || 'N/A'}
-Tags: ${(product.tags || []).join(', ')}
-Images: ${product.images?.length || 0} available
+ID: ${item.id}
+Title: ${item.title}
+Description: ${item.description}
+Category: ${item.category}
+Brand: ${item.brand || 'N/A'}
+Price: $${item.price}
+Discount: ${item.discountPercentage}%
+Rating: ${item.rating} / 5.0
+Stock: ${item.stock} units
+SKU: ${item.sku || 'N/A'}
+Weight: ${item.weight || 'N/A'}
+Tags: ${(item.tags || []).join(', ')}
+Images: ${item.images?.length || 0} available
 Last Updated: ${new Date().toISOString()}
 ========================================`;
       }
       
       return {
-        ...product,
+        ...item,
         payload: payload
       };
     });
@@ -404,7 +404,7 @@ Last Updated: ${new Date().toISOString()}
     const paginatedData = filteredData.slice(skipNum, skipNum + validLimit);
     
     console.log('[SERVER] GROUP_CHILDREN response:', {
-      totalProducts: allProducts.length,
+      totalItems: allData.length,
       totalChildren: totalChildren,
       returnedChildren: paginatedData.length,
       skip: skipNum,
@@ -417,22 +417,22 @@ Last Updated: ${new Date().toISOString()}
     
     // Return paginated children for this specific group
     res.json({
-      products: paginatedData,
+      content: paginatedData,
       total: totalChildren,
       skip: skipNum,
       limit: validLimit
     });
     
   } catch (error) {
-    console.error('[SERVER] Error in /api/products/children:', error);
+    console.error('[SERVER] Error in /api/data/children:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Endpoint: GET /api/products/nested-groups
+// Endpoint: GET /api/data/nested-groups
 // Returns unique group values for a nested level, filtered by parent group values
 // Supports multiple parent groups via parentFilters parameter (JSON array of {field, value})
-app.get('/api/products/nested-groups', async (req, res) => {
+app.get('/api/data/nested-groups', async (req, res) => {
   try {
     // Add 3 second delay for testing loading indicator
     await delay(3000);
@@ -503,7 +503,7 @@ app.get('/api/products/nested-groups', async (req, res) => {
     }
     
     // Apply global search first (before filters)
-    let filteredData = applyGlobalSearch(allProducts, search, parsedSearchFields);
+    let filteredData = applyGlobalSearch(allData, search, parsedSearchFields);
     
     // Add all parent group filters (supporting multiple parents)
     const parentGroupFilters = parsedParentFilters.map(pf => ({
@@ -561,7 +561,7 @@ app.get('/api/products/nested-groups', async (req, res) => {
     console.log('[SERVER] NESTED_GROUPS response:', {
       parentFilters: parsedParentFilters,
       childGroupField,
-      totalProducts: allProducts.length,
+      totalItems: allData.length,
       afterParentFilter: filteredData.length,
       uniqueChildGroups: metadata.length,
       sampleGroups: metadata.slice(0, 3).map(g => `${g.key}(${g.count})`).join(', ')
@@ -577,7 +577,7 @@ app.get('/api/products/nested-groups', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('[SERVER] Error in /api/products/nested-groups:', error);
+    console.error('[SERVER] Error in /api/data/nested-groups:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -640,9 +640,9 @@ function applyGlobalSearch(data, searchTerm, searchFields = []) {
   });
 }
 
-// Endpoint: GET /api/products
-// Main endpoint for fetching products with pagination, filtering, sorting, and search
-app.get('/api/products', async (req, res) => {
+// Endpoint: GET /api/data
+// Main endpoint for fetching data with pagination, filtering, sorting, and search
+app.get('/api/data', async (req, res) => {
   try {
     // Add 3 second delay for testing loading indicator
     await delay(3000);
@@ -654,7 +654,7 @@ app.get('/api/products', async (req, res) => {
     const limitNum = parseInt(limit) || 10;
     const validLimit = limitNum > 0 ? limitNum : 10;
     
-    console.log('[SERVER] PRODUCTS API called:', { 
+    console.log('[SERVER] DATA API called:', { 
       skip: skipNum, 
       limit: validLimit, 
       sortBy, 
@@ -663,10 +663,10 @@ app.get('/api/products', async (req, res) => {
       searchFields 
     });
     
-    // Fetch all products from dummyjson.com (limit 100 for demo)
+    // Fetch all data from dummyjson.com (limit 100 for demo)
     const url = 'https://dummyjson.com/products?limit=100&skip=0';
     const response = await fetchFromDummyJson(url);
-    const allProducts = response.products || [];
+    const allData = response.products || [];
     
     // Parse filters if provided
     let parsedFilters = [];
@@ -699,7 +699,7 @@ app.get('/api/products', async (req, res) => {
     }
     
     // Apply global search first (before filters)
-    let processedData = applyGlobalSearch(allProducts, search, parsedSearchFields);
+    let processedData = applyGlobalSearch(allData, search, parsedSearchFields);
     
     // Apply filters
     processedData = applyFilters(processedData, parsedFilters);
@@ -710,73 +710,73 @@ app.get('/api/products', async (req, res) => {
     // Apply sorting
     processedData = applySorting(processedData, parsedSort);
     
-    // Add payload field to each product (mix of JSON, XML, and text)
-    processedData = processedData.map((product, index) => {
+    // Add payload field to each item (mix of JSON, XML, and text)
+    processedData = processedData.map((item, index) => {
       const payloadTypes = ['json', 'xml', 'text'];
       const payloadType = payloadTypes[index % payloadTypes.length];
       
       let payload;
       if (payloadType === 'json') {
         payload = JSON.stringify({
-          productId: product.id,
+          itemId: item.id,
           metadata: {
-            category: product.category,
-            brand: product.brand,
-            rating: product.rating,
-            stock: product.stock,
-            price: product.price,
-            discountPercentage: product.discountPercentage,
+            category: item.category,
+            brand: item.brand,
+            rating: item.rating,
+            stock: item.stock,
+            price: item.price,
+            discountPercentage: item.discountPercentage,
             timestamp: new Date().toISOString(),
-            tags: product.tags || [],
-            images: product.images?.length || 0
+            tags: item.tags || [],
+            images: item.images?.length || 0
           },
           analytics: {
             views: Math.floor(Math.random() * 10000),
             purchases: Math.floor(Math.random() * 1000),
-            revenue: (product.price * Math.floor(Math.random() * 100)).toFixed(2)
+            revenue: (item.price * Math.floor(Math.random() * 100)).toFixed(2)
           }
         }, null, 2);
       } else if (payloadType === 'xml') {
         payload = `<?xml version="1.0" encoding="UTF-8"?>
-<product>
-  <id>${product.id}</id>
-  <title>${product.title}</title>
-  <description>${product.description}</description>
-  <category>${product.category}</category>
-  <brand>${product.brand || 'N/A'}</brand>
-  <price>${product.price}</price>
-  <discountPercentage>${product.discountPercentage}</discountPercentage>
-  <rating>${product.rating}</rating>
-  <stock>${product.stock}</stock>
+<item>
+  <id>${item.id}</id>
+  <title>${item.title}</title>
+  <description>${item.description}</description>
+  <category>${item.category}</category>
+  <brand>${item.brand || 'N/A'}</brand>
+  <price>${item.price}</price>
+  <discountPercentage>${item.discountPercentage}</discountPercentage>
+  <rating>${item.rating}</rating>
+  <stock>${item.stock}</stock>
   <metadata>
-    <sku>${product.sku || 'N/A'}</sku>
-    <weight>${product.weight || 'N/A'}</weight>
-    <dimensions>${JSON.stringify(product.dimensions || {})}</dimensions>
+    <sku>${item.sku || 'N/A'}</sku>
+    <weight>${item.weight || 'N/A'}</weight>
+    <dimensions>${JSON.stringify(item.dimensions || {})}</dimensions>
   </metadata>
   <timestamp>${new Date().toISOString()}</timestamp>
-</product>`;
+</item>`;
       } else {
-        payload = `Product Details for ${product.title}
+        payload = `Item Details for ${item.title}
 ========================================
-ID: ${product.id}
-Title: ${product.title}
-Description: ${product.description}
-Category: ${product.category}
-Brand: ${product.brand || 'N/A'}
-Price: $${product.price}
-Discount: ${product.discountPercentage}%
-Rating: ${product.rating} / 5.0
-Stock: ${product.stock} units
-SKU: ${product.sku || 'N/A'}
-Weight: ${product.weight || 'N/A'}
-Tags: ${(product.tags || []).join(', ')}
-Images: ${product.images?.length || 0} available
+ID: ${item.id}
+Title: ${item.title}
+Description: ${item.description}
+Category: ${item.category}
+Brand: ${item.brand || 'N/A'}
+Price: $${item.price}
+Discount: ${item.discountPercentage}%
+Rating: ${item.rating} / 5.0
+Stock: ${item.stock} units
+SKU: ${item.sku || 'N/A'}
+Weight: ${item.weight || 'N/A'}
+Tags: ${(item.tags || []).join(', ')}
+Images: ${item.images?.length || 0} available
 Last Updated: ${new Date().toISOString()}
 ========================================`;
       }
       
       return {
-        ...product,
+        ...item,
         payload: payload
       };
     });
@@ -793,10 +793,10 @@ Last Updated: ${new Date().toISOString()}
       }
     }
     
-    console.log('[SERVER] PRODUCTS API response:', {
-      totalProducts: allProducts.length,
+    console.log('[SERVER] DATA API response:', {
+      totalItems: allData.length,
       afterSearchAndFilters: total,
-      returnedProducts: paginatedData.length,
+      returnedItems: paginatedData.length,
       skip: skipNum,
       limit: validLimit,
       hasPayload: paginatedData.length > 0 && !!paginatedData[0].payload
@@ -804,7 +804,7 @@ Last Updated: ${new Date().toISOString()}
     
     // Return paginated data with total count
     res.json({
-      products: paginatedData,
+      content: paginatedData,
       total: total,
       skip: skipNum,
       limit: validLimit,
@@ -812,7 +812,7 @@ Last Updated: ${new Date().toISOString()}
     });
     
   } catch (error) {
-    console.error('[SERVER] Error in /api/products:', error);
+    console.error('[SERVER] Error in /api/data:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -906,9 +906,9 @@ function convertToPDF(data, columns) {
   return html;
 }
 
-// Endpoint: POST /api/products/export
+// Endpoint: POST /api/data/export
 // Exports ALL data (not paginated) in the requested format with current filters/sort
-app.post('/api/products/export', async (req, res) => {
+app.post('/api/data/export', async (req, res) => {
   try {
     const { format, sort, filters, groups, columns, search } = req.body;
     
@@ -918,10 +918,10 @@ app.post('/api/products/export', async (req, res) => {
     
     console.log('[SERVER] EXPORT API called:', { format, sort, filters, groups, columns: columns?.length, search });
     
-    // Fetch ALL products from dummyjson.com (limit 100 for demo, but no pagination)
+    // Fetch ALL data from dummyjson.com (limit 100 for demo, but no pagination)
     const url = 'https://dummyjson.com/products?limit=100&skip=0';
     const response = await fetchFromDummyJson(url);
-    const allProducts = response.products || [];
+    const allData = response.products || [];
     
     // Parse filters if provided
     let parsedFilters = filters || [];
@@ -942,79 +942,79 @@ app.post('/api/products/export', async (req, res) => {
     // Apply sorting
     processedData = applySorting(processedData, parsedSort);
     
-    // Add payload field to each product (mix of JSON, XML, and text)
-    processedData = processedData.map((product, index) => {
+    // Add payload field to each item (mix of JSON, XML, and text)
+    processedData = processedData.map((item, index) => {
       const payloadTypes = ['json', 'xml', 'text'];
       const payloadType = payloadTypes[index % payloadTypes.length];
       
       let payload;
       if (payloadType === 'json') {
         payload = JSON.stringify({
-          productId: product.id,
+          itemId: item.id,
           metadata: {
-            category: product.category,
-            brand: product.brand,
-            rating: product.rating,
-            stock: product.stock,
-            price: product.price,
-            discountPercentage: product.discountPercentage,
+            category: item.category,
+            brand: item.brand,
+            rating: item.rating,
+            stock: item.stock,
+            price: item.price,
+            discountPercentage: item.discountPercentage,
             timestamp: new Date().toISOString(),
-            tags: product.tags || [],
-            images: product.images?.length || 0
+            tags: item.tags || [],
+            images: item.images?.length || 0
           },
           analytics: {
             views: Math.floor(Math.random() * 10000),
             purchases: Math.floor(Math.random() * 1000),
-            revenue: (product.price * Math.floor(Math.random() * 100)).toFixed(2)
+            revenue: (item.price * Math.floor(Math.random() * 100)).toFixed(2)
           }
         }, null, 2);
       } else if (payloadType === 'xml') {
         payload = `<?xml version="1.0" encoding="UTF-8"?>
-<product>
-  <id>${product.id}</id>
-  <title>${product.title}</title>
-  <description>${product.description}</description>
-  <category>${product.category}</category>
-  <brand>${product.brand || 'N/A'}</brand>
-  <price>${product.price}</price>
-  <discountPercentage>${product.discountPercentage}</discountPercentage>
-  <rating>${product.rating}</rating>
-  <stock>${product.stock}</stock>
+<item>
+  <id>${item.id}</id>
+  <title>${item.title}</title>
+  <description>${item.description}</description>
+  <category>${item.category}</category>
+  <brand>${item.brand || 'N/A'}</brand>
+  <price>${item.price}</price>
+  <discountPercentage>${item.discountPercentage}</discountPercentage>
+  <rating>${item.rating}</rating>
+  <stock>${item.stock}</stock>
   <metadata>
-    <sku>${product.sku || 'N/A'}</sku>
-    <weight>${product.weight || 'N/A'}</weight>
-    <dimensions>${JSON.stringify(product.dimensions || {})}</dimensions>
+    <sku>${item.sku || 'N/A'}</sku>
+    <weight>${item.weight || 'N/A'}</weight>
+    <dimensions>${JSON.stringify(item.dimensions || {})}</dimensions>
   </metadata>
   <timestamp>${new Date().toISOString()}</timestamp>
-</product>`;
+</item>`;
       } else {
-        payload = `Product Details for ${product.title}
+        payload = `Item Details for ${item.title}
 ========================================
-ID: ${product.id}
-Title: ${product.title}
-Description: ${product.description}
-Category: ${product.category}
-Brand: ${product.brand || 'N/A'}
-Price: $${product.price}
-Discount: ${product.discountPercentage}%
-Rating: ${product.rating} / 5.0
-Stock: ${product.stock} units
-SKU: ${product.sku || 'N/A'}
-Weight: ${product.weight || 'N/A'}
-Tags: ${(product.tags || []).join(', ')}
-Images: ${product.images?.length || 0} available
+ID: ${item.id}
+Title: ${item.title}
+Description: ${item.description}
+Category: ${item.category}
+Brand: ${item.brand || 'N/A'}
+Price: $${item.price}
+Discount: ${item.discountPercentage}%
+Rating: ${item.rating} / 5.0
+Stock: ${item.stock} units
+SKU: ${item.sku || 'N/A'}
+Weight: ${item.weight || 'N/A'}
+Tags: ${(item.tags || []).join(', ')}
+Images: ${item.images?.length || 0} available
 Last Updated: ${new Date().toISOString()}
 ========================================`;
       }
       
       return {
-        ...product,
+        ...item,
         payload: payload
       };
     });
     
     console.log('[SERVER] EXPORT response:', {
-      totalProducts: allProducts.length,
+      totalItems: allData.length,
       afterSearchAndFilters: processedData.length,
       format
     });
@@ -1053,7 +1053,7 @@ Last Updated: ${new Date().toISOString()}
     res.send(content);
     
   } catch (error) {
-    console.error('[SERVER] Error in /api/products/export:', error);
+    console.error('[SERVER] Error in /api/data/export:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1066,8 +1066,8 @@ app.get('/health', (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`[SERVER] Server running on http://localhost:${PORT}`);
-  console.log(`[SERVER] Products endpoint: http://localhost:${PORT}/api/products`);
-  console.log(`[SERVER] Group metadata endpoint: http://localhost:${PORT}/api/products/groups`);
-  console.log(`[SERVER] Group children endpoint: http://localhost:${PORT}/api/products/children`);
-  console.log(`[SERVER] Export endpoint: http://localhost:${PORT}/api/products/export`);
+  console.log(`[SERVER] Data endpoint: http://localhost:${PORT}/api/data`);
+  console.log(`[SERVER] Group metadata endpoint: http://localhost:${PORT}/api/data/groups`);
+  console.log(`[SERVER] Group children endpoint: http://localhost:${PORT}/api/data/children`);
+  console.log(`[SERVER] Export endpoint: http://localhost:${PORT}/api/data/export`);
 });

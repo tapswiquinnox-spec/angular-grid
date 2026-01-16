@@ -5,16 +5,16 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { AppComponent } from './app.component';
 import { NgDataGridModule } from '../../../../projects/ng-data-grid/src/public-api';
-import { ServerDemoComponent } from './server-demo/server-demo.component';
-import { ServerGridComponent } from './server-demo/server-grid.component';
+import { AngularDataGridWidgetComponent } from './server-demo/angular-data-grid-widget.component';
+import { AngularDataGridWidgetGridComponent } from './server-demo/angular-data-grid-widget-grid.component';
 import { PayloadPopupComponent } from './server-demo/payload-popup.component';
 import { AppRoutingModule } from './app-routing.module';
 
 @NgModule({
   declarations: [
     AppComponent,
-    ServerDemoComponent,
-    ServerGridComponent,
+    AngularDataGridWidgetComponent,
+    AngularDataGridWidgetGridComponent,
     PayloadPopupComponent
   ],
   imports: [

@@ -1,9 +1,9 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { ServerDemoComponent } from './server-demo/server-demo.component';
+import { AngularDataGridWidgetComponent } from './server-demo/angular-data-grid-widget.component';
 
 const routes: Routes = [
-  { path: '', component: ServerDemoComponent },
+  { path: '', component: AngularDataGridWidgetComponent },
   { path: '**', redirectTo: '' }
 ];
 

@@ -102,7 +102,7 @@ export class AppModule { }
 import { Component } from '@angular/core';
 import { GridOptions, ColumnDef, ColumnType, SortDirection } from '@ng-data-grid/core';
 
-interface Product {
+interface DataItem {
   id: number;
   name: string;
   price: number;
@@ -116,12 +116,12 @@ interface Product {
   `
 })
 export class MyGridComponent {
-  data: Product[] = [
-    { id: 1, name: 'Product A', price: 100, stock: 50 },
-    { id: 2, name: 'Product B', price: 200, stock: 30 }
+  data: DataItem[] = [
+    { id: 1, name: 'Item A', price: 100, stock: 50 },
+    { id: 2, name: 'Item B', price: 200, stock: 30 }
   ];
 
-  gridOptions: GridOptions<Product> = {
+  gridOptions: GridOptions<DataItem> = {
     columns: [
       {
         field: 'id',
@@ -132,7 +132,7 @@ export class MyGridComponent {
       },
       {
         field: 'name',
-        title: 'Product Name',
+        title: 'Item Name',
         type: ColumnType.String,
         width: 200,
         sortable: true,
@@ -234,7 +234,7 @@ gridOptions: GridOptions<Product> = {
       .set('sort', JSON.stringify(params.sort))
       .set('filters', JSON.stringify(params.filters));
     
-    return this.http.get<PageResult<Product>>('/api/products', { params: httpParams });
+    return this.http.get<PageResult<DataItem>>('/api/data', { params: httpParams });
   }
 };
 ```
@@ -261,7 +261,7 @@ gridOptions: GridOptions<Product> = {
     { field: 'name', title: 'Name', type: ColumnType.String },
     { field: 'price', title: 'Price', type: ColumnType.Number }
   ],
-  dataSource: this.products,
+  dataSource: this.data,
   pageSizeOptions: [10, 20, 50],
   defaultPageSize: 20
 };
@@ -276,7 +276,7 @@ gridOptions: GridOptions<Product> = {
     { field: 'name', title: 'Name', type: ColumnType.String, sortable: true, filterable: true },
     { field: 'price', title: 'Price', type: ColumnType.Number, sortable: true, filterable: true }
   ],
-  dataSource: (params) => this.productService.getProducts(params),
+  dataSource: (params) => this.dataService.getData(params),
   pageSizeOptions: [10, 20, 50],
   defaultPageSize: 20
 };
@@ -299,7 +299,7 @@ gridOptions: GridOptions<Product> = {
 export class MyComponent {
   @ViewChild('statusTemplate') statusTemplate!: TemplateRef<any>;
   
-  gridOptions: GridOptions<Product> = {
+  gridOptions: GridOptions<DataItem> = {
     columns: [
       {
         field: 'active',
@@ -341,7 +341,7 @@ gridOptions: GridOptions<Product> = {
       }
     }
   ],
-  dataSource: this.products,
+  dataSource: this.data,
   editable: true,
   editMode: EditMode.Cell
 };

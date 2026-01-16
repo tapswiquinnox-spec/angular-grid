@@ -3,27 +3,27 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import {
-  ServerDemoApiRequest,
-  ServerDemoApiResponse,
-  ProductsPageRequest,
+  AngularDataGridWidgetApiRequest,
+  AngularDataGridWidgetApiResponse,
+  DataPageRequest,
   GroupMetadataRequest,
   GroupChildrenRequest,
   NestedGroupsRequest,
   ExportRequest
-} from './server-demo.types';
+} from './angular-data-grid-widget.types';
 
 /**
  * Parent component that ONLY handles API calls.
- * All grid logic, state, and UI is handled by server-grid child component.
+ * All grid logic, state, and UI is handled by angular-data-grid-widget-grid child component.
  */
 @Component({
-  selector: 'app-server-demo',
-  templateUrl: './server-demo.component.html',
-  styleUrls: ['./server-demo.component.css']
+  selector: 'app-angular-data-grid-widget',
+  templateUrl: './angular-data-grid-widget.component.html',
+  styleUrls: ['./angular-data-grid-widget.component.css']
 })
-export class ServerDemoComponent implements OnInit {
+export class AngularDataGridWidgetComponent implements OnInit {
   
-  @ViewChild('serverGrid', { static: false }) serverGrid!: any; // Reference to server-grid component
+  @ViewChild('angularDataGridWidget', { static: false }) angularDataGridWidget!: any; // Reference to angular-data-grid-widget-grid component
   
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
   
@@ -35,21 +35,21 @@ export class ServerDemoComponent implements OnInit {
    * Single event entrypoint from child.
    * Parent performs API calls only and pushes results back on apiResponses$.
    */
-  onApiRequest(req: ServerDemoApiRequest): void {
+  onApiRequest(req: AngularDataGridWidgetApiRequest): void {
     switch (req.eventType) {
-      case 'productsPage': {
-        const r = req.eventData as ProductsPageRequest;
+      case 'dataPage': {
+        const r = req.eventData as DataPageRequest;
         this.fetchMockApiPage(r.page, r.pageSize, r.sort || [], r.filters || [], r.groups || [], r.search || '').subscribe({
-          next: (result) => this.serverGrid?.onApiResponse({ requestId: req.requestId, eventType: 'productsPage', data: result }),
-          error: (err) => this.serverGrid?.onApiResponse({ requestId: req.requestId, eventType: 'productsPage', data: { data: [], total: 0, error: String(err) } })
+          next: (result) => this.angularDataGridWidget?.onApiResponse({ requestId: req.requestId, eventType: 'dataPage', data: result }),
+          error: (err) => this.angularDataGridWidget?.onApiResponse({ requestId: req.requestId, eventType: 'dataPage', data: { data: [], total: 0, error: String(err) } })
         });
         return;
       }
       case 'groupMetadata': {
         const r = req.eventData as GroupMetadataRequest;
         this.fetchGroupMetadataAPI(r.groupField, r.sort || [], r.filters || [], r.skip || 0, r.limit || 10, r.search || '').subscribe({
-          next: (response) => this.serverGrid?.onApiResponse({ requestId: req.requestId, eventType: 'groupMetadata', data: { request: r, response } }),
-          error: (err) => this.serverGrid?.onApiResponse({ requestId: req.requestId, eventType: 'groupMetadata', data: { request: r, response: { groups: [], total: 0 }, error: String(err) } })
+          next: (response) => this.angularDataGridWidget?.onApiResponse({ requestId: req.requestId, eventType: 'groupMetadata', data: { request: r, response } }),
+          error: (err) => this.angularDataGridWidget?.onApiResponse({ requestId: req.requestId, eventType: 'groupMetadata', data: { request: r, response: { groups: [], total: 0 }, error: String(err) } })
         });
         return;
       }
@@ -59,24 +59,24 @@ export class ServerDemoComponent implements OnInit {
         const limit = r.limit || 10;
         this.fetchGroupChildrenAPI(r.groupField, r.groupValue, r.sort || [], r.filters || [], r.search || '', skip, limit).subscribe({
           next: (response) => {
-            const children = response.products || [];
+            const children = response.content || [];
             const total = response.total || 0;
             const page = Math.floor(skip / limit) + 1;
             const hasMore = skip + limit < total;
             // Return request data so child can build the correct cache key
-            this.serverGrid?.onApiResponse({
+            this.angularDataGridWidget?.onApiResponse({
               requestId: req.requestId,
               eventType: 'groupChildren',
               data: { request: r, children, total, hasMore, page, pageSize: limit }
             });
           },
-          error: (err) => this.serverGrid?.onApiResponse({ requestId: req.requestId, eventType: 'groupChildren', data: { error: String(err) } })
+          error: (err) => this.angularDataGridWidget?.onApiResponse({ requestId: req.requestId, eventType: 'groupChildren', data: { error: String(err) } })
         });
         return;
       }
       case 'nestedGroups': {
         const r = req.eventData as NestedGroupsRequest;
-        let url = `http://localhost:3000/api/products/nested-groups`;
+        let url = `http://localhost:3000/api/data/nested-groups`;
         const query: string[] = [];
         query.push(`parentFilters=${encodeURIComponent(JSON.stringify(r.parentFilters || []))}`);
         query.push(`childGroupField=${encodeURIComponent(r.childGroupField)}`);
@@ -89,13 +89,13 @@ export class ServerDemoComponent implements OnInit {
           next: (response) => {
             // Use cacheKey from request if provided, otherwise generate a fallback
             const cacheKey = r.cacheKey || `nested-${r.childGroupField}-parents${JSON.stringify(r.parentFilters || [])}`;
-            this.serverGrid?.onApiResponse({
+            this.angularDataGridWidget?.onApiResponse({
               requestId: req.requestId,
               eventType: 'nestedGroups',
               data: { cacheKey, metadata: response.groups || [], total: response.total || 0 }
             });
           },
-          error: (err) => this.serverGrid?.onApiResponse({ requestId: req.requestId, eventType: 'nestedGroups', data: { error: String(err) } })
+          error: (err) => this.angularDataGridWidget?.onApiResponse({ requestId: req.requestId, eventType: 'nestedGroups', data: { error: String(err) } })
         });
         return;
       }
@@ -126,7 +126,7 @@ export class ServerDemoComponent implements OnInit {
     search?: string
   ): Observable<{ data: any[]; total: number }> {
     const skip = (page - 1) * pageSize;
-    let url = `http://localhost:3000/api/products`;
+    let url = `http://localhost:3000/api/data`;
     url += `?skip=${skip}`;
     url += `&limit=${pageSize}`;
     
@@ -144,7 +144,7 @@ export class ServerDemoComponent implements OnInit {
     
     return this.http.get<any>(url).pipe(
       map(resp => {
-        const data = resp.products || [];
+        const data = resp.content || [];
         const total = resp.total || 0;
         return { data, total };
       })
@@ -159,7 +159,7 @@ export class ServerDemoComponent implements OnInit {
     limit: number = 10,
     search: string = ''
   ): Observable<{ groups: Array<{ value: any; key: string; count: number }>; total: number; skip: number; limit: number }> {
-    let url = `http://localhost:3000/api/products/groups`;
+    let url = `http://localhost:3000/api/data/groups`;
     url += `?groupField=${encodeURIComponent(groupField)}`;
     url += `&skip=${skip}`;
     url += `&limit=${limit}`;
@@ -198,8 +198,8 @@ export class ServerDemoComponent implements OnInit {
     search: string = '',
     skip: number = 0,
     limit: number = 10
-  ): Observable<{ products: any[]; total: number; skip: number; limit: number }> {
-    let url = `http://localhost:3000/api/products/children`;
+  ): Observable<{ content: any[]; total: number; skip: number; limit: number }> {
+    let url = `http://localhost:3000/api/data/children`;
     url += `?groupField=${encodeURIComponent(groupField)}`;
     url += `&groupValue=${encodeURIComponent(groupValue === '(null)' ? '' : String(groupValue))}`;
     url += `&skip=${skip}`;
@@ -220,10 +220,10 @@ export class ServerDemoComponent implements OnInit {
     
     return this.http.get<any>(url).pipe(
       map(resp => {
-        const products = resp.products || [];
+        const content = resp.content || [];
         return {
-          products: products,
-          total: resp.total || products.length,
+          content: content,
+          total: resp.total || content.length,
           skip: resp.skip || skip,
           limit: resp.limit || limit
         };
@@ -232,7 +232,7 @@ export class ServerDemoComponent implements OnInit {
   }
 
   private fetchExportFile(request: ExportRequest): Observable<{ blob: Blob; filename: string }> {
-    const url = `http://localhost:3000/api/products/export`;
+    const url = `http://localhost:3000/api/data/export`;
     return this.http.post(url, request, { observe: 'response', responseType: 'blob' }).pipe(
       map((response) => {
         const contentDisposition = response.headers.get('content-disposition') || '';

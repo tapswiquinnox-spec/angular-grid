@@ -25,28 +25,28 @@ import {
   GroupChildrenRequest,
   GroupMetadataRequest,
   NestedGroupsRequest,
-  ProductsPageRequest,
-  ServerDemoApiRequest,
-  ServerDemoApiResponse
-} from './server-demo.types';
+  DataPageRequest,
+  AngularDataGridWidgetApiRequest,
+  AngularDataGridWidgetApiResponse
+} from './angular-data-grid-widget.types';
 
 
 /**
  * Child component that handles ALL grid logic, state, caching, and UI.
- * Parent (server-demo) only handles API calls.
+ * Parent (angular-data-grid-widget) only handles API calls.
  */
 @Component({
-  selector: 'app-server-grid',
-  templateUrl: './server-grid.component.html',
-  styleUrls: ['./server-grid.component.css']
+  selector: 'app-angular-data-grid-widget-grid',
+  templateUrl: './angular-data-grid-widget-grid.component.html',
+  styleUrls: ['./angular-data-grid-widget-grid.component.css']
 })
-export class ServerGridComponent implements OnInit, OnDestroy {
+export class AngularDataGridWidgetGridComponent implements OnInit, OnDestroy {
   @ViewChild('statusTemplate', { static: true }) statusTemplate!: TemplateRef<any>;
   @ViewChild('ratingTemplate', { static: true }) ratingTemplate!: TemplateRef<any>;
   @ViewChild('payloadTemplate', { static: true }) payloadTemplate!: TemplateRef<any>;
   @ViewChild('dataGrid', { static: false }) dataGridRef!: any; // Reference to lib-data-grid component
   
-  @Output() apiRequest = new EventEmitter<ServerDemoApiRequest>();
+  @Output() apiRequest = new EventEmitter<AngularDataGridWidgetApiRequest>();
 
   // UI state
   isLoading = false;
@@ -86,7 +86,7 @@ export class ServerGridComponent implements OnInit, OnDestroy {
     // Clear persisted pageSize from localStorage to ensure initial pageSize is 10
     // The grid will load other persisted settings (column widths, order, etc.) but pageSize will be 10
     try {
-      const settingsKey = 'ng-data-grid-server-side-grid-products';
+      const settingsKey = 'ng-data-grid-server-side-grid-data';
       const stored = localStorage.getItem(settingsKey);
       if (stored) {
         const settings = JSON.parse(stored);
@@ -103,7 +103,7 @@ export class ServerGridComponent implements OnInit, OnDestroy {
     // Initial load
     this.isLoading = true;
     this.emitPageResult([], 0, 1, this.pageSize, true);
-    this.requestProductsPage({ page: 1, pageSize: this.pageSize, sort: [], filters: [], groups: [], search: '' });
+    this.requestDataPage({ page: 1, pageSize: this.pageSize, sort: [], filters: [], groups: [], search: '' });
   }
 
   ngOnDestroy(): void {
@@ -114,7 +114,7 @@ export class ServerGridComponent implements OnInit, OnDestroy {
   /**
    * Public method called by parent component when API response is received
    */
-  onApiResponse(resp: ServerDemoApiResponse): void {
+  onApiResponse(resp: AngularDataGridWidgetApiResponse): void {
     this.handleApiResponse(resp);
   }
 
@@ -376,14 +376,14 @@ export class ServerGridComponent implements OnInit, OnDestroy {
   // -------------------------
   // API Request Helpers
   // -------------------------
-  private emitRequest(eventType: ServerDemoApiRequest['eventType'], eventData: any): string {
+  private emitRequest(eventType: AngularDataGridWidgetApiRequest['eventType'], eventData: any): string {
     const requestId = `${eventType}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     this.apiRequest.emit({ requestId, eventType, eventData });
     return requestId;
   }
 
-  private requestProductsPage(req: ProductsPageRequest): void {
-    this.emitRequest('productsPage', req);
+  private requestDataPage(req: DataPageRequest): void {
+    this.emitRequest('dataPage', req);
   }
 
   private requestGroupMetadata(req: GroupMetadataRequest): void {
@@ -401,9 +401,9 @@ export class ServerGridComponent implements OnInit, OnDestroy {
   // -------------------------
   // API Response Handler
   // -------------------------
-  private handleApiResponse(resp: ServerDemoApiResponse): void {
+  private handleApiResponse(resp: AngularDataGridWidgetApiResponse): void {
     switch (resp.eventType) {
-      case 'productsPage': {
+      case 'dataPage': {
         const { data, total } = resp.data || { data: [], total: 0 };
         this.mockApiTotal = total;
         this.serverData = this.parseDates(data || []);
@@ -486,7 +486,7 @@ export class ServerGridComponent implements OnInit, OnDestroy {
     if (this.currentGroups?.length) {
       this.fetchGroupValues();
     } else {
-      this.requestProductsPage({ page: pageToFetch, pageSize: this.pageSize, sort: this.currentSort, filters: this.currentFilters, groups: [], search: this.currentSearch });
+      this.requestDataPage({ page: pageToFetch, pageSize: this.pageSize, sort: this.currentSort, filters: this.currentFilters, groups: [], search: this.currentSearch });
     }
   }
 
@@ -1046,7 +1046,7 @@ export class ServerGridComponent implements OnInit, OnDestroy {
       columnReorder: true,
       columnResize: true,
       persistSettings: true,
-      settingsKey: `server-side-grid-products`,
+      settingsKey: `server-side-grid-data`,
       showHeader: true,
       showFooter: true,
       showRowNumbers: true,

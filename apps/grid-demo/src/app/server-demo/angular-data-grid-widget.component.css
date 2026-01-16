@@ -130,7 +130,7 @@
   transition: all 0.3s ease;
 }
 
-app-server-grid {
+app-angular-data-grid-widget-grid {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
